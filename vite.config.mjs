@@ -17,5 +17,7 @@ export default defineConfig({
     host: "0.0.0.0",
     strictPort: true,
     allowedHosts: ['.amazonaws.com', '.builtwithrocket.new']
-  }
+  },
+  // For Netlify deployment - ensure correct output directory
+  base: './'
 });
