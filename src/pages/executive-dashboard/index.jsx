@@ -37,56 +37,122 @@ export default function ExecutiveDashboard() {
     try {
       setLoading(true);
       const { data, error } = await miningService.getDashboardStats(user?.role);
-      
+
       if (error) {
         console.error('Erreur chargement dashboard:', error);
-        // Utiliser les données par défaut en cas d'erreur
         setKpiData([
           {
             id: 1,
             title: "Production du Jour",
-            value: "1 170",
+            value: "0",
             unit: "t",
             trend: "down",
-            trendValue: "-22%",
+            trendValue: "-",
             icon: "Mountain",
             iconColor: "var(--color-primary)",
             bgColor: "rgba(44,85,48,0.12)",
-            subtitle: "Objectif: 1 500 t",
+            subtitle: "Pas de données disponibles",
             color: "var(--color-primary)",
-            progress: 78,
+            progress: 0,
             progressColor: "var(--color-primary)",
           },
-          // ... autres KPIs par défaut
         ]);
         return;
       }
-      
-      if (data) {
-        // Transformer les données de l'API en format KPI
-        const transformedKpis = [
+
+      if (!data) {
+        setKpiData([
           {
             id: 1,
             title: "Production du Jour",
-            value: data.total_production?.toLocaleString() || "0",
+            value: "0",
             unit: "t",
             trend: "stable",
             trendValue: "0%",
             icon: "Mountain",
             iconColor: "var(--color-primary)",
             bgColor: "rgba(44,85,48,0.12)",
-            subtitle: "Production actuelle",
+            subtitle: "Aucune donnée disponible",
             color: "var(--color-primary)",
-            progress: 100,
+            progress: 0,
             progressColor: "var(--color-primary)",
           },
-          // Ajouter d'autres KPIs basés sur les données
-        ];
-        setKpiData(transformedKpis);
+        ]);
+        return;
       }
+
+      const productionDay = Number(data.total_production || 0);
+      const revenue = Number(data.total_revenue || 0);
+      const expenses = Number(data.total_expenses || 0);
+      const costPerTon = productionDay > 0 ? (revenue / productionDay).toFixed(2) : 0;
+      const availability = Number(data.equipment_availability || 0);
+
+      const transformedKpis = [
+        {
+          id: 1,
+          title: "Production du Jour",
+          value: productionDay.toLocaleString('fr-FR'),
+          unit: "t",
+          trend: productionDay >= 0 ? "up" : "down",
+          trendValue: productionDay > 0 ? "+0%" : "0%",
+          icon: "Mountain",
+          iconColor: "var(--color-primary)",
+          bgColor: "rgba(44,85,48,0.12)",
+          subtitle: "Production actuelle",
+          color: "var(--color-primary)",
+          progress: Math.min(100, productionDay > 0 ? 100 : 0),
+          progressColor: "var(--color-primary)",
+        },
+        {
+          id: 2,
+          title: "Production du Mois",
+          value: data.total_production_month?.toLocaleString?.('fr-FR') || "0",
+          unit: "t",
+          trend: "up",
+          trendValue: "+0%",
+          icon: "BarChart3",
+          iconColor: "#3182CE",
+          bgColor: "rgba(49,130,206,0.12)",
+          subtitle: "Production cumulée",
+          color: "#3182CE",
+          progress: data.total_production_month ? Math.min(100, (Number(data.total_production_month) / 50000) * 100) : 0,
+          progressColor: "#3182CE",
+        },
+        {
+          id: 3,
+          title: "Engins Actifs",
+          value: availability ? `${availability.toFixed(1)} %` : "0 %",
+          unit: "",
+          trend: "stable",
+          trendValue: "0%",
+          icon: "Activity",
+          iconColor: "#F59E0B",
+          bgColor: "rgba(245,158,11,0.12)",
+          subtitle: "Taux de disponibilité",
+          color: "#F59E0B",
+          progress: availability,
+          progressColor: "#F59E0B",
+        },
+        {
+          id: 4,
+          title: "Coût par Tonne",
+          value: costPerTon.toString(),
+          unit: "€",
+          trend: "down",
+          trendValue: "-",
+          icon: "DollarSign",
+          iconColor: "#22C55E",
+          bgColor: "rgba(34,197,94,0.12)",
+          subtitle: "Économie actuelle",
+          color: "#22C55E",
+          progress: costPerTon > 0 ? Math.min(100, (3 / costPerTon) * 100) : 0,
+          progressColor: "#22C55E",
+        },
+      ];
+
+      setKpiData(transformedKpis);
     } catch (err) {
       console.error('Erreur:', err);
-      // Utiliser les données par défaut
       setKpiData([]);
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Button from "components/ui/Button";
 import Input from "components/ui/Input";
 import Icon from "components/AppIcon";
+import { miningService } from "../../../config/supabase";
 
 const ROLE_OPTIONS = [
   { value: "admin", label: "Administrateur" },
@@ -49,16 +50,41 @@ export default function CreateAccountForm({ onSuccess }) {
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault();
     const errs = validate();
-    if (Object.keys(errs)?.length > 0) { setErrors(errs); return; }
+    if (Object.keys(errs)?.length > 0) {
+      setErrors(errs);
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const newUser = {
+        username: `${form.firstName.toLowerCase()}.${form.lastName.toLowerCase()}`,
+        email: form.email,
+        full_name: `${form.firstName} ${form.lastName}`,
+        password_hash: form.password,
+        role: form.role,
+        department: form.site,
+        is_active: true,
+      };
+
+      const { data, error } = await miningService.createUser('admin', newUser);
+      if (error) {
+        console.error('Erreur création utilisateur:', error);
+        setErrors({ form: 'Erreur lors de la création du compte. Réessayez.' });
+        return;
+      }
+
       setSuccess(true);
-      if (onSuccess) onSuccess(form);
-    }, 1000);
+      if (onSuccess) onSuccess(data);
+    } catch (err) {
+      console.error('Erreur CreateAccountForm:', err);
+      setErrors({ form: 'Erreur inattendue. Réessayez.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {

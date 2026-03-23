@@ -3,13 +3,9 @@ import Icon from "components/AppIcon";
 import Button from "components/ui/Button";
 import Input from "components/ui/Input";
 
-const MOCK_USERS = [
-  { email: "admin@mineops.fr", password: "Admin@2026", role: "admin", name: "Jean Dupont", site: "Site Kamoto" },
-  { email: "directeur@mineops.fr", password: "Dir@2026", role: "directeur", name: "Marie Leclerc", site: "Site Kamoto" },
-  { email: "chef@mineops.fr", password: "Chef@2026", role: "chef_de_site", name: "Paul Martin", site: "Site Kolwezi" },
-  { email: "comptable@mineops.fr", password: "Cpt@2026", role: "comptable", name: "Sophie Bernard", site: "Site Kamoto" },
-  { email: "supervisor@mineops.fr", password: "Sup@2026", role: "supervisor", name: "Alain Mbuji", site: "Site Kamoto" },
-];
+import { miningService } from "../../../config/supabase";
+
+
 
 const ROLE_LABELS = {
   admin: "Administrateur",
@@ -35,7 +31,7 @@ export default function LoginForm({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault();
     setError("");
     if (!email || !password) {
@@ -43,19 +39,41 @@ export default function LoginForm({ onLoginSuccess }) {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      const user = MOCK_USERS?.find(
-        (u) => u?.email === email && u?.password === password
-      );
-      if (user) {
-        onLoginSuccess(user);
-      } else {
-        setError(
-          `Identifiants incorrects. Utilisez l'un des comptes de démonstration :\n• admin@mineops.fr / Admin@2026\n• directeur@mineops.fr / Dir@2026\n• chef@mineops.fr / Chef@2026\n• comptable@mineops.fr / Cpt@2026`
-        );
+
+    try {
+      const { data: dbUser, error } = await miningService.getUserByEmail(email);
+      if (error) {
+        console.error('Erreur récupération utilisateur:', error);
+        setError("Erreur serveur, réessayez plus tard.");
+        return;
       }
+
+      const userFromDb = dbUser;
+
+      if (!userFromDb) {
+        setError("Utilisateur introuvable. Créez un compte ou vérifiez l'email.");
+        return;
+      }
+
+      if (userFromDb.password_hash !== password) {
+        setError("Mot de passe incorrect.");
+        return;
+      }
+
+      const normalizedUser = {
+        role: userFromDb.role,
+        name: userFromDb.full_name,
+        site: userFromDb.department,
+        email: userFromDb.email,
+      };
+
+      onLoginSuccess(normalizedUser);
+    } catch (err) {
+      console.error('Erreur lors de la connexion:', err);
+      setError("Erreur imprévue, réessayez.");
+    } finally {
       setLoading(false);
-    }, 900);
+    }
   };
 
   return (
@@ -136,32 +154,13 @@ export default function LoginForm({ onLoginSuccess }) {
       >
         Se connecter
       </Button>
-      {/* Demo credentials hint */}
       <div
         className="rounded-lg p-3 border"
         style={{ background: "rgba(44,85,48,0.05)", borderColor: "rgba(44,85,48,0.2)" }}
       >
-        <p className="text-xs font-semibold mb-2" style={{ color: "var(--color-primary)", fontFamily: "var(--font-caption)" }}>
-          Comptes de démonstration :
+        <p className="text-xs" style={{ color: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}>
+          Pour utiliser cette application en mode production, créez un compte via "Créer un compte" puis connectez-vous avec vos identifiants.
         </p>
-        <div className="space-y-1">
-          {MOCK_USERS?.map((u) => {
-            const rc = ROLE_COLORS?.[u?.role];
-            return (
-              <div key={u?.email} className="flex items-center gap-2">
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded font-medium"
-                  style={{ background: rc?.bg, color: rc?.color, fontFamily: "var(--font-caption)" }}
-                >
-                  {ROLE_LABELS?.[u?.role]}
-                </span>
-                <span className="text-xs" style={{ color: "var(--color-muted-foreground)", fontFamily: "var(--font-data)" }}>
-                  {u?.email} / {u?.password}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </form>
   );

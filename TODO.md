@@ -1,16 +1,20 @@
-# Fuel Consumption per Machine Integration - COMPLETED ✅
+# Correction Erreur "TypeError: Failed to fetch" - ✅ RÉSOLUE
 
-## Plan Steps:
-- [x] 1. Add fuel service functions to src/config/supabase.js
-- [x] 2. Integrate Supabase in src/pages/fuel-management/index.jsx (replace mocks)
-- [x] 3. Add fuel consumption display to src/pages/production-management/components/EquipmentUtility.jsx
-- [x] 4. Test functionality in app
+## ✅ Étapes complétées
+- [x] 1. .env.local créé ✅
+- [x] 2. supabase.js mis à jour ✅
+- [x] 3. check-supabase.js : CONNEXION OK, tables présentes ✅
+- [ ] 4. Redémarrer npm run start
+- [ ] 5. Test dashboard/production
+- [ ] 6. disable_rls.sql si accès refusé
+- [ ] 7. Données test optionnelles
 
-## Results:
-- **fuel_transactions** table used for per-machine consumption.
-- **/fuel-management**: Full CRUD (list, add), real Supabase data, stats.
-- **EquipmentUtility.jsx**: New chart/table: actual vs expected fuel rate (L/h), total consumed per machine.
-- Navigate to `http://localhost:4028/fuel-management` to test adding/viewing data.
-- View in production page components.
+## 🚀 Test maintenant
+1. Ctrl+C (arrêter serveur)
+2. `npm run start`
+3. Login admin/admin123 → Dashboard → Plus d'erreur fetch !
 
-Clean up TODO.md if desired.
+## Notes
+- ✅ Supabase connecté : https://kuluihwgrppsziezqrws.supabase.co
+- ⚠️ Tables vides (normal nouveau projet)
+

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://mbpvkayzjrvtcelreffo.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1icHZrYXl6anJ2dGNlbHJlZmZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzYwMTksImV4cCI6MjA4OTI1MjAxOX0.fiYin6Y1Sa2ZHC8oilhNlo791BORoxVLq6aaDezSQG4';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://kuluihwgrppsziezqrws.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHVpaHdncnBwc3ppZXpxcndzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNzc2NDksImV4cCI6MjA5OTY1MzY0OX0.hxcTNdiozovD5I3WtYsqvo4wb_bWNFchd7TMrU1-uHU';
 
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -23,6 +23,16 @@ export const miningService = {
     const { data, error } = await supabase
       .from('users')
       .select('*');
+    return { data, error };
+  },
+
+  async getUserByEmail(email) {
+    if (!email) return { data: null, error: new Error('Email requis') };
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
     return { data, error };
   },
 
@@ -75,11 +85,22 @@ export const miningService = {
   async getDashboardStats(userRole) {
     const denied = ensureRoleAccess(userRole, ['admin', 'directeur']);
     if (denied) return denied;
-    const { data, error } = await supabase
-      .from('dashboard_stats')
-      .select('*')
-      .single();
-    return { data, error };
+    try {
+      const { data, error } = await supabase
+        .from('dashboard_stats')
+        .select('*')
+        .order('stat_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        console.error('Erreur Supabase dashboard_stats:', error);
+        console.error('Détails erreur:', error.message);
+      }
+      return { data, error };
+    } catch (fetchError) {
+      console.error('Erreur fetch dashboard:', fetchError);
+      return { data: null, error: fetchError };
+    }
   },
 
   // Fuel Management
