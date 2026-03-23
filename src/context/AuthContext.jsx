@@ -71,7 +71,7 @@ const DEFAULT_USERS = [
 
 // Fonction pour obtenir tous les utilisateurs (par défaut + dynamiques)
 const getAllUsers = () => {
-  const dynamicUsers = JSON.parse(localStorage.getItem('users_fallback') || '[]');
+  const dynamicUsers = JSON.parse(localStorage.getItem('auth_users') || '[]');
   return [...DEFAULT_USERS, ...dynamicUsers];
 };
 

@@ -123,33 +123,59 @@ export default function Administration() {
         return;
       }
 
-      setUsers(users.map(u => 
-        u.id === editUser.id ? { ...u, ...editUser } : u
-      ));
+      const result = await miningService.updateUser('admin', editUser.id, {
+        username: editUser.username,
+        email: editUser.email,
+        full_name: editUser.full_name,
+        role: editUser.role,
+        department: editUser.department
+      });
+
+      if (result.error) throw result.error;
+
+      await loadUsers(); // Recharger la liste
       setShowEditModal(false);
       setSelectedUser(null);
       alert('Utilisateur modifié avec succès!');
     } catch (error) {
       console.error("Erreur modification utilisateur:", error);
+      alert('Erreur lors de la modification: ' + (error.message || 'Erreur inconnue'));
     }
   };
 
   // Activer/Désactiver un utilisateur
-  const handleToggleUserStatus = (userId) => {
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, is_active: !u.is_active } : u
-    ));
+  const handleToggleUserStatus = async (userId) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      const result = await miningService.updateUser('admin', userId, {
+        is_active: !user.is_active
+      });
+
+      if (result.error) throw result.error;
+
+      await loadUsers(); // Recharger la liste
+    } catch (error) {
+      console.error("Erreur changement statut utilisateur:", error);
+      alert('Erreur lors du changement de statut: ' + (error.message || 'Erreur inconnue'));
+    }
   };
 
   // Supprimer un utilisateur
   const handleDeleteUser = async (userId) => {
     try {
       if (window.confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.")) {
-        setUsers(users.filter(u => u.id !== userId));
+        const result = await miningService.deleteUser('admin', userId);
+
+        if (result.error) throw result.error;
+
+        await loadUsers(); // Recharger la liste
         alert('Utilisateur supprimé avec succès!');
       }
     } catch (error) {
       console.error("Erreur suppression utilisateur:", error);
+      alert('Erreur lors de la suppression: ' + (error.message || 'Erreur inconnue'));
     }
   };
 
