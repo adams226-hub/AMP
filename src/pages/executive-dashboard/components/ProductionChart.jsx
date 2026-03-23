@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { calculateObjective, loadCustomObjectives } from "../../../config/production-objectives.js";
 
 // Fonction pour générer les données depuis localStorage (synchronisé avec le module production)
 const getProductionData = () => {
@@ -75,17 +74,10 @@ const getMonthlyData = () => {
         const weekKey = `S${weekNumber}`;
         
         if (!weeklyData[weekKey]) {
-          // Calculer l'objectif hebdomadaire dynamique
-          const objective = calculateObjective({
-            period: 'weekly',
-            site: item.site || 'Site Principal',
-            dimensions: item.dimensions || []
-          });
-          
           weeklyData[weekKey] = {
             jour: weekKey,
             production: 0,
-            objectif: objective, // Objectif dynamique
+            objectif: item.objective || 1500, // Objectif depuis le module production
             carburant: 0
           };
         }
@@ -100,13 +92,12 @@ const getMonthlyData = () => {
     console.warn('ProductionChart: Error reading monthly data, using fallback');
   }
   
-  // Données par défaut - utiliser les objectifs dynamiques
-  const defaultWeeklyObjective = calculateObjective({ period: 'weekly' });
+  // Données par défaut
   return [
-    { jour: "S1", production: 8200, objectif: defaultWeeklyObjective, carburant: 22000 },
-    { jour: "S2", production: 9800, objectif: defaultWeeklyObjective, carburant: 25000 },
-    { jour: "S3", production: 11200, objectif: defaultWeeklyObjective, carburant: 28000 },
-    { jour: "S4", production: 10100, objectif: defaultWeeklyObjective, carburant: 26000 },
+    { jour: "S1", production: 8200, objectif: 10500, carburant: 22000 },
+    { jour: "S2", production: 9800, objectif: 10500, carburant: 25000 },
+    { jour: "S3", production: 11200, objectif: 10500, carburant: 28000 },
+    { jour: "S4", production: 10100, objectif: 10500, carburant: 26000 },
   ];
 };
 
