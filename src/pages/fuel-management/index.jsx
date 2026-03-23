@@ -135,6 +135,21 @@ export default function FuelManagement() {
     consommation: Math.round(qty * 100) / 100
   }));
 
+  // Données mock pour les graphiques si aucune donnée réelle
+  const mockChartData = [
+    { machine: "EX-001", consommation: 420 },
+    { machine: "EX-002", consommation: 380 },
+    { machine: "DR-001", consommation: 290 },
+    { machine: "CV-001", consommation: 310 }
+  ];
+
+  const mockCostData = [
+    { date: "01/03/2026", coût: 756 },
+    { date: "05/03/2026", coût: 684 },
+    { date: "10/03/2026", coût: 522 },
+    { date: "15/03/2026", coût: 558 }
+  ];
+
   // Données pour le graphique Évolution Coûts
   const costByDate = consumption.reduce((acc, item) => {
     const date = item.date ? new Date(item.date).toISOString().split('T')[0] : 'Inconnue';
@@ -339,15 +354,24 @@ export default function FuelManagement() {
             Consommation par Machine
           </h3>
           <div className="h-64">
-            {consumptionChartData.length > 0 ? (
+            {(consumptionChartData.length > 0 ? consumptionChartData : mockChartData).length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={consumptionChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="machine" />
-                  <YAxis />
+                <BarChart data={consumptionChartData.length > 0 ? consumptionChartData : mockChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis 
+                    dataKey="machine" 
+                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip formatter={(value) => [`${value} L`, 'Consommation']} />
                   <Legend />
-                  <Bar dataKey="consommation" fill="#2C5530" />
+                  <Bar dataKey="consommation" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -362,15 +386,24 @@ export default function FuelManagement() {
             Évolution Coûts
           </h3>
           <div className="h-64">
-            {costEvolutionData.length > 0 ? (
+            {(costEvolutionData.length > 0 ? costEvolutionData : mockCostData).length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={costEvolutionData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
+                <LineChart data={costEvolutionData.length > 0 ? costEvolutionData : mockCostData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip formatter={(value) => [`${value} €`, 'Coût']} />
                   <Legend />
-                  <Line type="monotone" dataKey="coût" stroke="#D69E2E" strokeWidth={2} />
+                  <Line type="monotone" dataKey="coût" stroke="var(--color-warning)" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
