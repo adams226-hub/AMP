@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -10,23 +10,93 @@ import {
   Legend,
 } from "recharts";
 
+// Fonction pour générer les données depuis localStorage (synchronisé avec le module production)
+const getProductionData = () => {
+  try {
+    // Essayer de récupérer les données du module production
+    const productionData = JSON.parse(localStorage.getItem('production_final') || '[]');
+    
+    if (productionData.length > 0) {
+      // Grouper par jour pour le graphique
+      const dailyData = {};
+      
+      productionData.forEach(item => {
+        const date = new Date(item.date);
+        const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
+        
+        if (!dailyData[dayName]) {
+          dailyData[dayName] = {
+            jour: dayName,
+            production: 0,
+            objectif: 1500, // Objectif par défaut
+            carburant: 0
+          };
+        }
+        
+        dailyData[dayName].production += item.total || 0;
+        dailyData[dayName].carburant += Math.floor((item.total || 0) * 2.5); // Estimation carburant
+      });
+      
+      // Convertir en tableau et trier
+      return Object.values(dailyData);
+    }
+  } catch (error) {
+    console.warn('ProductionChart: Error reading localStorage, using fallback data');
+  }
+  
+  // Données par défaut si localStorage vide
+  return [
+    { jour: "Lun", production: 1240, objectif: 1500, carburant: 3200 },
+    { jour: "Mar", production: 1580, objectif: 1500, carburant: 3800 },
+    { jour: "Mer", production: 1320, objectif: 1500, carburant: 3100 },
+    { jour: "Jeu", production: 1750, objectif: 1500, carburant: 4200 },
+    { jour: "Ven", production: 1620, objectif: 1500, carburant: 3900 },
+    { jour: "Sam", production: 980, objectif: 1500, carburant: 2400 },
+    { jour: "Dim", production: 420, objectif: 1500, carburant: 1100 },
+  ];
+};
 
-const weeklyData = [
-  { jour: "Lun", production: 1240, objectif: 1500, carburant: 3200 },
-  { jour: "Mar", production: 1580, objectif: 1500, carburant: 3800 },
-  { jour: "Mer", production: 1320, objectif: 1500, carburant: 3100 },
-  { jour: "Jeu", production: 1750, objectif: 1500, carburant: 4200 },
-  { jour: "Ven", production: 1620, objectif: 1500, carburant: 3900 },
-  { jour: "Sam", production: 980, objectif: 1500, carburant: 2400 },
-  { jour: "Dim", production: 420, objectif: 1500, carburant: 1100 },
-];
-
-const monthlyData = [
-  { jour: "S1", production: 8200, objectif: 10500, carburant: 22000 },
-  { jour: "S2", production: 9800, objectif: 10500, carburant: 25000 },
-  { jour: "S3", production: 11200, objectif: 10500, carburant: 28000 },
-  { jour: "S4", production: 10100, objectif: 10500, carburant: 26000 },
-];
+// Données mensuelles (synchronisées)
+const getMonthlyData = () => {
+  try {
+    const productionData = JSON.parse(localStorage.getItem('production_final') || '[]');
+    
+    if (productionData.length > 0) {
+      // Grouper par semaine
+      const weeklyData = {};
+      
+      productionData.forEach(item => {
+        const date = new Date(item.date);
+        const weekNumber = Math.ceil((date.getDate() + new Date(date.getFullYear(), date.getMonth(), 1).getDay()) / 7);
+        const weekKey = `S${weekNumber}`;
+        
+        if (!weeklyData[weekKey]) {
+          weeklyData[weekKey] = {
+            jour: weekKey,
+            production: 0,
+            objectif: 10500,
+            carburant: 0
+          };
+        }
+        
+        weeklyData[weekKey].production += item.total || 0;
+        weeklyData[weekKey].carburant += Math.floor((item.total || 0) * 2.5);
+      });
+      
+      return Object.values(weeklyData);
+    }
+  } catch (error) {
+    console.warn('ProductionChart: Error reading monthly data, using fallback');
+  }
+  
+  // Données par défaut
+  return [
+    { jour: "S1", production: 8200, objectif: 10500, carburant: 22000 },
+    { jour: "S2", production: 9800, objectif: 10500, carburant: 25000 },
+    { jour: "S3", production: 11200, objectif: 10500, carburant: 28000 },
+    { jour: "S4", production: 10100, objectif: 10500, carburant: 26000 },
+  ];
+};
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload?.length) {
@@ -60,7 +130,32 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function ProductionChart() {
   const [period, setPeriod] = useState("week");
-  const data = period === "week" ? weeklyData : monthlyData;
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    // Mettre à jour les données quand la période change
+    const newData = period === "week" ? getProductionData() : getMonthlyData();
+    setData(newData);
+  }, [period]);
+
+  // Écouter les changements dans localStorage pour mise à jour automatique
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newData = period === "week" ? getProductionData() : getMonthlyData();
+      setData(newData);
+    };
+
+    // Écouter les changements de localStorage
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Vérifier périodiquement les changements (pour les changements dans le même onglet)
+    const interval = setInterval(handleStorageChange, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [period]);
 
   return (
     <div
