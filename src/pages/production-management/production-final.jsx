@@ -64,7 +64,6 @@ export default function ProductionFinal() {
       const formData = new FormData(form);
       const date = formData.get('date');
       const operator = formData.get('operator');
-      const objective = formData.get('objective');
       const minerai = formData.get('minerai');
       const forage = formData.get('forage');
       const o4 = formData.get('04');
@@ -77,12 +76,15 @@ export default function ProductionFinal() {
 
       const total = (parseFloat(minerai) || 0) + (parseFloat(forage) || 0) + (parseFloat(o4) || 0) + (parseFloat(o5) || 0);
 
+      // Calculer l'objectif automatiquement en fonction de la production saisie
+      const calculatedObjective = total * 1.2; // Objectif = 120% de la production réelle
+
       const entryToAdd = {
         id: Date.now().toString(),
         date: date,
         operator: operator,
         total: total,
-        objective: parseFloat(objective) || 1500, // Objectif saisi ou défaut
+        objective: calculatedObjective, // Objectif calculé automatiquement
         dimensions: `Minerai: ${minerai || 0}t, Forage: ${forage || 0}t, 0/4: ${o4 || 0}t, 0/5: ${o5 || 0}t`
       };
 
@@ -92,16 +94,11 @@ export default function ProductionFinal() {
       productions.push(entryToAdd);
       localStorage.setItem('production_final', JSON.stringify(productions));
       
-      // Sauvegarder l'objectif pour cette date
-      const objectives = JSON.parse(localStorage.getItem('production_objectives_daily') || '{}');
-      objectives[date] = parseFloat(objective) || 1500;
-      localStorage.setItem('production_objectives_daily', JSON.stringify(objectives));
-      
       // Mettre à jour l'état local
       const updatedProduction = [...productionData, entryToAdd];
       setProductionData(updatedProduction);
       
-      toastSuccess(`Production enregistrée: ${total} tonnes (Objectif: ${objective || 1500}t)`);
+      toastSuccess(`Production enregistrée: ${total} tonnes (Objectif calculé: ${calculatedObjective.toFixed(1)}t)`);
       
       // Fermer modal et vider formulaire
       setShowAddModal(false);
@@ -234,17 +231,6 @@ export default function ProductionFinal() {
                     type="text"
                     name="operator"
                     required
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Objectif (tonnes)</label>
-                  <input
-                    type="number"
-                    name="objective"
-                    step="0.1"
-                    defaultValue="1500"
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                   />
                 </div>
