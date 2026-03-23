@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import NotFound from './pages/NotFound';
 import Login from "./pages/login";
 import ProductionManagement from "./pages/production-management";
+import ProductionSimple from "./pages/production-management/production-simple";
 import ExecutiveDashboard from "./pages/executive-dashboard";
 import UserAuthentication from "./pages/user-authentication";
 import EquipmentManagement from "./pages/equipment-management";
@@ -93,6 +94,13 @@ const AppRoutes = () => {
       <Route path="/production-management" element={
         <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor', 'operator']}>
           <ProductionManagement />
+        </ProtectedRouteWrapper>
+      } />
+      
+      {/* Route Production Simple - garantie fonctionnelle */}
+      <Route path="/production-simple" element={
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor', 'operator']}>
+          <ProductionSimple />
         </ProtectedRouteWrapper>
       } />
       
