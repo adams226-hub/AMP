@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { calculateObjective, loadCustomObjectives } from "../../../config/production-objectives.js";
 
 // Fonction pour générer les données depuis localStorage (synchronisé avec le module production)
 const getProductionData = () => {
@@ -25,10 +26,18 @@ const getProductionData = () => {
         const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
         
         if (!dailyData[dayName]) {
+          // Calculer l'objectif dynamique selon le contexte
+          const objective = calculateObjective({
+            period: 'daily',
+            site: item.site || 'Site Principal',
+            shift: item.shift || 'Jour',
+            dimensions: item.dimensions || []
+          });
+          
           dailyData[dayName] = {
             jour: dayName,
             production: 0,
-            objectif: 1500, // Objectif par défaut
+            objectif: objective, // Objectif dynamique
             carburant: 0
           };
         }
@@ -44,15 +53,16 @@ const getProductionData = () => {
     console.warn('ProductionChart: Error reading localStorage, using fallback data');
   }
   
-  // Données par défaut si localStorage vide
+  // Données par défaut si localStorage vide - utiliser les objectifs dynamiques
+  const defaultObjective = calculateObjective({ period: 'daily' });
   return [
-    { jour: "Lun", production: 1240, objectif: 1500, carburant: 3200 },
-    { jour: "Mar", production: 1580, objectif: 1500, carburant: 3800 },
-    { jour: "Mer", production: 1320, objectif: 1500, carburant: 3100 },
-    { jour: "Jeu", production: 1750, objectif: 1500, carburant: 4200 },
-    { jour: "Ven", production: 1620, objectif: 1500, carburant: 3900 },
-    { jour: "Sam", production: 980, objectif: 1500, carburant: 2400 },
-    { jour: "Dim", production: 420, objectif: 1500, carburant: 1100 },
+    { jour: "Lun", production: 1240, objectif: defaultObjective, carburant: 3200 },
+    { jour: "Mar", production: 1580, objectif: defaultObjective, carburant: 3800 },
+    { jour: "Mer", production: 1320, objectif: defaultObjective, carburant: 3100 },
+    { jour: "Jeu", production: 1750, objectif: defaultObjective, carburant: 4200 },
+    { jour: "Ven", production: 1620, objectif: defaultObjective, carburant: 3900 },
+    { jour: "Sam", production: 980, objectif: defaultObjective, carburant: 2400 },
+    { jour: "Dim", production: 420, objectif: defaultObjective, carburant: 1100 },
   ];
 };
 
@@ -71,10 +81,17 @@ const getMonthlyData = () => {
         const weekKey = `S${weekNumber}`;
         
         if (!weeklyData[weekKey]) {
+          // Calculer l'objectif hebdomadaire dynamique
+          const objective = calculateObjective({
+            period: 'weekly',
+            site: item.site || 'Site Principal',
+            dimensions: item.dimensions || []
+          });
+          
           weeklyData[weekKey] = {
             jour: weekKey,
             production: 0,
-            objectif: 10500,
+            objectif: objective, // Objectif dynamique
             carburant: 0
           };
         }
@@ -89,12 +106,13 @@ const getMonthlyData = () => {
     console.warn('ProductionChart: Error reading monthly data, using fallback');
   }
   
-  // Données par défaut
+  // Données par défaut - utiliser les objectifs dynamiques
+  const defaultWeeklyObjective = calculateObjective({ period: 'weekly' });
   return [
-    { jour: "S1", production: 8200, objectif: 10500, carburant: 22000 },
-    { jour: "S2", production: 9800, objectif: 10500, carburant: 25000 },
-    { jour: "S3", production: 11200, objectif: 10500, carburant: 28000 },
-    { jour: "S4", production: 10100, objectif: 10500, carburant: 26000 },
+    { jour: "S1", production: 8200, objectif: defaultWeeklyObjective, carburant: 22000 },
+    { jour: "S2", production: 9800, objectif: defaultWeeklyObjective, carburant: 25000 },
+    { jour: "S3", production: 11200, objectif: defaultWeeklyObjective, carburant: 28000 },
+    { jour: "S4", production: 10100, objectif: defaultWeeklyObjective, carburant: 26000 },
   ];
 };
 
