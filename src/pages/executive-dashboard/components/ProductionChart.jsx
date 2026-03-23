@@ -26,18 +26,13 @@ const getProductionData = () => {
         const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
         
         if (!dailyData[dayName]) {
-          // Calculer l'objectif dynamique selon le contexte
-          const objective = calculateObjective({
-            period: 'daily',
-            site: item.site || 'Site Principal',
-            shift: item.shift || 'Jour',
-            dimensions: item.dimensions || []
-          });
+          // Utiliser l'objectif saisi dans le module production
+          const objective = item.objective || 1500;
           
           dailyData[dayName] = {
             jour: dayName,
             production: 0,
-            objectif: objective, // Objectif dynamique
+            objectif: objective, // Objectif depuis le module production
             carburant: 0
           };
         }
@@ -53,16 +48,15 @@ const getProductionData = () => {
     console.warn('ProductionChart: Error reading localStorage, using fallback data');
   }
   
-  // Données par défaut si localStorage vide - utiliser les objectifs dynamiques
-  const defaultObjective = calculateObjective({ period: 'daily' });
+  // Données par défaut si localStorage vide
   return [
-    { jour: "Lun", production: 1240, objectif: defaultObjective, carburant: 3200 },
-    { jour: "Mar", production: 1580, objectif: defaultObjective, carburant: 3800 },
-    { jour: "Mer", production: 1320, objectif: defaultObjective, carburant: 3100 },
-    { jour: "Jeu", production: 1750, objectif: defaultObjective, carburant: 4200 },
-    { jour: "Ven", production: 1620, objectif: defaultObjective, carburant: 3900 },
-    { jour: "Sam", production: 980, objectif: defaultObjective, carburant: 2400 },
-    { jour: "Dim", production: 420, objectif: defaultObjective, carburant: 1100 },
+    { jour: "Lun", production: 1240, objectif: 1500, carburant: 3200 },
+    { jour: "Mar", production: 1580, objectif: 1500, carburant: 3800 },
+    { jour: "Mer", production: 1320, objectif: 1500, carburant: 3100 },
+    { jour: "Jeu", production: 1750, objectif: 1500, carburant: 4200 },
+    { jour: "Ven", production: 1620, objectif: 1500, carburant: 3900 },
+    { jour: "Sam", production: 980, objectif: 1500, carburant: 2400 },
+    { jour: "Dim", production: 420, objectif: 1500, carburant: 1100 },
   ];
 };
 
