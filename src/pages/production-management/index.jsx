@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { parseObjective, formatObjective, calculateProgress, calculateStock } from "../../utils/objectiveParser";
-import { toastError, toastSuccess } from "../../utils/toast";
+import { toastError, toastSuccess, toastLoading } from "../../utils/toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { miningService } from "../../config/supabase";
@@ -128,13 +128,13 @@ export default function ProductionManagement() {
   const handleAddProduction = async () => {
     try {
       if (!newEntry.date || !newEntry.site || !newEntry.operator) {
-        alert('Veuillez remplir les champs obligatoires');
+        toastError('Veuillez remplir les champs obligatoires');
         return;
       }
 
       const hasQuantities = newEntry.dimensions.some(dim => dim.quantity && parseFloat(dim.quantity) > 0);
       if (!hasQuantities) {
-        alert('Veuillez saisir au moins une quantité');
+        toastError('Veuillez saisir au moins une quantité');
         return;
       }
 
@@ -156,29 +156,39 @@ export default function ProductionManagement() {
         notes: newEntry.notes
       };
 
-      const updatedProduction = [...productionData, entryToAdd];
-      setProductionData(updatedProduction);
+      // Utiliser le service avec fallback
+      const { data, error } = await miningService.addProductionData('admin', entryToAdd);
       
-      // Mettre à jour le stock de manière cumulative
-      const stockCalculations = calculateStock(updatedProduction, exitData);
-      setStockData(stockCalculations);
-      
-      // Réinitialiser le formulaire
-      setNewEntry({
-        date: new Date().toISOString().split('T')[0],
-        site: 'Site Principal',
-        shift: 'Jour',
-        operator: '',
-        notes: '',
-        dimensions: DIMENSIONS_LIST.map(dim => ({ dimension: dim, quantity: 0 }))
-      });
-      
-      setShowAddModal(false);
-      alert(`Production enregistrée: ${total} tonnes`);
+      if (error) {
+        console.error("Erreur ajout production:", error);
+        toastError("Erreur lors de l'enregistrement de la production");
+      } else {
+        // Ajouter localement si succès
+        const updatedProduction = [...productionData, entryToAdd];
+        setProductionData(updatedProduction);
+        
+        // Mettre à jour le stock de manière cumulative
+        const stockCalculations = calculateStock(updatedProduction, exitData);
+        setStockData(stockCalculations);
+        
+        toastSuccess(`Production enregistrée: ${total} tonnes`);
+        
+        // Réinitialiser le formulaire
+        setNewEntry({
+          date: new Date().toISOString().split('T')[0],
+          site: 'Site Principal',
+          shift: 'Jour',
+          operator: '',
+          notes: '',
+          dimensions: DIMENSIONS_LIST.map(dim => ({ dimension: dim, quantity: 0 }))
+        });
+        
+        setShowAddModal(false);
+      }
       
     } catch (error) {
       console.error("Erreur ajout production:", error);
-      alert("Erreur lors de l'enregistrement de la production");
+      toastError("Erreur lors de l'enregistrement de la production");
     }
   };
 
