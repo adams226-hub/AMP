@@ -13,6 +13,7 @@ import ExecutiveDashboard from "./pages/executive-dashboard";
 import UserAuthentication from "./pages/user-authentication";
 import EquipmentManagement from "./pages/equipment-management";
 import FuelManagement from "./pages/fuel-management";
+import OilManagement from "./pages/oil-management";
 import Accounting from "./pages/accounting";
 import Reports from "./pages/reports";
 import Administration from "./pages/administration";
@@ -135,17 +136,21 @@ const AppRoutes = () => {
         </ProtectedRouteWrapper>
       } />
       
-      <Route path="/accounting" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'comptable', 'equipement']}>
-          <Accounting />
-
+      <Route path="/oil-management" element={
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site', 'equipement', 'supervisor', 'comptable']}>
+          <OilManagement />
         </ProtectedRouteWrapper>
       } />
       
+      <Route path="/accounting" element={
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'comptable', 'equipement']}>
+          <Accounting />
+        </ProtectedRouteWrapper>
+      } />
+
       <Route path="/reports" element={
         <ProtectedRouteWrapper allowedRoles={['admin', 'directeur']}>
           <Reports />
-
         </ProtectedRouteWrapper>
       } />
       

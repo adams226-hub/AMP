@@ -191,7 +191,7 @@ export default function Accounting() {
   };
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="Amp Mines et Carrieres Exploration & Mines">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
@@ -201,7 +201,7 @@ export default function Accounting() {
             Gestion financière et suivi des transactions
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="default"
             iconName="Plus"
@@ -266,7 +266,7 @@ export default function Accounting() {
           </h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b" style={{ borderColor: "var(--color-border)" }}>
                 <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Date</th>

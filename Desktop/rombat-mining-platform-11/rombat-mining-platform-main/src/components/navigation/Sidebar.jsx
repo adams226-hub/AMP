@@ -35,7 +35,7 @@ const NAV_ITEMS = [
     roles: ['admin', 'directeur'],
     badge: null,
   },
-  {
+  { 
     id: 'oil',
     label: 'Huile',
     icon: 'Droplet',

@@ -5,12 +5,12 @@ const AuthContext = createContext(null);
 
 // Permissions par rôle : quelles routes chaque rôle peut accéder
 const ROLE_PERMISSIONS = {
-  admin:        ['/', '/executive-dashboard', '/production-management', '/equipment-management', '/fuel-management', '/accounting', '/reports', '/administration', '/stock-management', '/data-explorer'],
-  directeur:    ['/', '/executive-dashboard', '/production-management', '/equipment-management', '/fuel-management', '/accounting', '/reports', '/stock-management', '/data-explorer'],
-  chef_de_site: ['/', '/equipment-management', '/data-explorer'],
-  comptable:    ['/', '/accounting', '/data-explorer'],
-  equipement:   ['/', '/equipment-management', '/accounting', '/data-explorer'],
-  supervisor:   ['/', '/production-management', '/stock-management', '/data-explorer'],
+  admin:        ['/', '/executive-dashboard', '/production-management', '/equipment-management', '/fuel-management', '/oil-management', '/accounting', '/reports', '/administration', '/stock-management', '/data-explorer'],
+  directeur:    ['/', '/executive-dashboard', '/production-management', '/equipment-management', '/fuel-management', '/oil-management', '/accounting', '/reports', '/stock-management', '/data-explorer'],
+  chef_de_site: ['/', '/equipment-management', '/oil-management', '/data-explorer'],
+  comptable:    ['/', '/accounting', '/oil-management', '/data-explorer'],
+  equipement:   ['/', '/equipment-management', '/accounting', '/oil-management', '/data-explorer'],
+  supervisor:   ['/', '/production-management', '/stock-management', '/oil-management', '/data-explorer'],
   operator:     ['/', '/production-management', '/stock-management']
 };
 

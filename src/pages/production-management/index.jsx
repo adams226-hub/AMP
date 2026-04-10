@@ -17,25 +17,10 @@ export default function ProductionManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
-  const [showObjectivesModal, setShowObjectivesModal] = useState(false);
-  const [objectives, setObjectives] = useState({
-    'Minerai': 300,
-    'Forage': 150,
-    '0/4': 200,
-    '0/5': 180,
-    '0/6': 160,
-    '5/15': 140,
-    '8/15': 120,
-    '15/25': 100,
-    '4/6': 90,
-    '10/14': 80,
-    '6/10': 70,
-    '0/31,5': 60,
-  });
 
   // Liste cohérente des dimensions
   const DIMENSIONS_LIST = [
-    'Minerai', 'Forage', '0/4', '0/5', '0/6', '5/15', '8/15', '15/25', '4/6', '10/14', '6/10', '0/31,5'
+    'Nombre de voyages alimentés', 'Nombre de trous forés', '0/4', '0/5', '0/6', '5/15', '8/15', '15/25', '4/6', '10/14', '6/10', '0/31,5'
   ];
 
   const [newEntry, setNewEntry] = useState({
@@ -68,6 +53,19 @@ export default function ProductionManagement() {
       return entry.dimensions.reduce((sum, dim) => sum + (parseFloat(dim?.quantity) || 0), 0);
     }
     return 0;
+  };
+
+  const normalizeDimensionLabel = (dimension) => {
+    if (!dimension) return dimension;
+    if (dimension === 'Minerai' || dimension === 'Nombre de voyages alimentés' || dimension === 'Nombre de voyage alimenter') return 'Nombre de voyages alimentés';
+    if (dimension === 'Forage' || dimension === 'Nombre de trous forés' || dimension === 'Nombre de trous fore') return 'Nombre de trous forés';
+    return dimension;
+  };
+
+  const dimensionUnit = (dimension) => {
+    const norm = normalizeDimensionLabel(dimension);
+    if (norm === 'Nombre de voyages alimentés' || norm === 'Nombre de trous forés') return '';
+    return 't';
   };
 
   const normalizeProductionData = (data) => {
@@ -242,7 +240,7 @@ export default function ProductionManagement() {
 
   if (loading) {
     return (
-      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="Amp Mines et Carrieres">
+      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
         <div className="flex items-center justify-center h-64">
           <p style={{ color: "var(--color-muted-foreground)" }}>Chargement...</p>
         </div>
@@ -251,7 +249,7 @@ export default function ProductionManagement() {
   }
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="Amp Mines et Carrieres">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
@@ -269,14 +267,6 @@ export default function ProductionManagement() {
             onClick={() => setShowAddModal(true)}
           >
             Saisie Production
-          </Button>
-          <Button
-            variant="outline"
-            iconName="Target"
-            iconPosition="left"
-            onClick={() => setShowObjectivesModal(true)}
-          >
-            Objectifs
           </Button>
           <Button
             variant="outline"
@@ -298,7 +288,7 @@ export default function ProductionManagement() {
       </div>
 
       {/* Cartes de synthèse */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="p-4 rounded-xl border" style={{ background: "var(--color-card)" }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(34,197,94,0.12)" }}>
@@ -338,19 +328,6 @@ export default function ProductionManagement() {
             </div>
           </div>
         </div>
-        <div className="p-4 rounded-xl border" style={{ background: "var(--color-card)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(214,158,46,0.12)" }}>
-              <Icon name="Activity" size={20} color="var(--color-warning)" />
-            </div>
-            <div>
-              <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Moyenne/Saisie</p>
-              <p className="text-xl font-bold" style={{ color: "var(--color-foreground)" }}>
-                {productionData.length > 0 ? (totalProduction / productionData.length).toFixed(1) : 0} t
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Tableau du stock par dimension */}
@@ -376,17 +353,17 @@ export default function ProductionManagement() {
                 <tr key={index} className="border-b" style={{ borderColor: "var(--color-border)" }}>
                   <td className="p-4">
                     <span className="font-medium" style={{ color: "var(--color-foreground)" }}>
-                      {item.dimension}
+                      {normalizeDimensionLabel(item.dimension)}
                     </span>
                   </td>
                   <td className="p-4" style={{ color: "var(--color-success)", fontWeight: 'bold' }}>
-                    +{item.entries.toFixed(1)} t
+                    +{item.entries.toFixed(1)} {dimensionUnit(item.dimension)}
                   </td>
                   <td className="p-4" style={{ color: "var(--color-error)", fontWeight: 'bold' }}>
-                    -{item.exits.toFixed(1)} t
+                    -{item.exits.toFixed(1)} {dimensionUnit(item.dimension)}
                   </td>
                   <td className="p-4" style={{ color: "var(--color-foreground)", fontWeight: 'bold' }}>
-                    {item.available.toFixed(1)} t
+                    {item.available.toFixed(1)} {dimensionUnit(item.dimension)}
                   </td>
                   <td className="p-4">
                     <span className="px-2 py-1 rounded-full text-xs font-medium" 
@@ -529,9 +506,9 @@ export default function ProductionManagement() {
                 </div>
               </div>
               
-              {/* Minerai et Forage — champs principaux au-dessus */}
+              {/* Nombre de voyages alimentés et Nombre de trous forés — champs principaux au-dessus */}
               <div className="grid grid-cols-2 gap-4 p-3 rounded-lg" style={{ background: "var(--color-muted)" }}>
-                {['Minerai', 'Forage'].map(dimName => {
+                {['Nombre de voyages alimentés', 'Nombre de trous forés'].map(dimName => {
                   const index = newEntry.dimensions.findIndex(d => d.dimension === dimName);
                   const dim = newEntry.dimensions[index];
                   const stockDim = stockData.find(s => s.dimension === dimName);
@@ -540,10 +517,10 @@ export default function ProductionManagement() {
                     <div key={dimName}>
                       <label className="block text-sm font-semibold mb-0.5" style={{ color: "var(--color-foreground)" }}>{dimName}</label>
                       <p className="text-xs mb-1" style={{ color: "var(--color-muted-foreground)" }}>
-                        Nombre: <span style={{ fontWeight: 600, color: available > 0 ? "var(--color-success)" : "var(--color-muted-foreground)" }}>{available.toFixed(1)} t</span>
+                        Nombre: <span style={{ fontWeight: 600, color: available > 0 ? "var(--color-success)" : "var(--color-muted-foreground)" }}>{available.toFixed(0)}</span>
                       </p>
                       <input
-                        type="number" step="0.1" min="0"
+                        type="text" inputMode="numeric"
                         value={dim?.quantity ?? 0}
                         onChange={(e) => {
                           const updatedDims = [...newEntry.dimensions];
@@ -552,7 +529,7 @@ export default function ProductionManagement() {
                         }}
                         className="w-full p-2 rounded border font-bold"
                         style={{ borderColor: "var(--color-primary)", background: "var(--color-background)", color: "var(--color-foreground)" }}
-                        placeholder="0.0"
+                        placeholder="0"
                       />
                     </div>
                   );
@@ -561,10 +538,10 @@ export default function ProductionManagement() {
 
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                  Production par dimension (tonnes)
+                  Production par dimension (tonnes pour granulats, nombres pour voyage/forage)
                 </label>
                 <div className="grid grid-cols-3 gap-4 max-h-64 overflow-y-auto pr-2">
-                  {newEntry.dimensions.filter(dim => dim.dimension !== 'Minerai' && dim.dimension !== 'Forage').map((dim, _) => {
+                  {newEntry.dimensions.filter(dim => dim.dimension !== 'Nombre de voyages alimentés' && dim.dimension !== 'Nombre de trous forés').map((dim, _) => {
                     const index = newEntry.dimensions.findIndex(d => d.dimension === dim.dimension);
                     const stockDim = stockData.find(s => s.dimension === dim.dimension);
                     const available = stockDim ? stockDim.available : 0;
@@ -577,7 +554,7 @@ export default function ProductionManagement() {
                           Stock: <span style={{ fontWeight: 600, color: available > 0 ? "var(--color-success)" : "var(--color-muted-foreground)" }}>{available.toFixed(1)} t</span>
                         </p>
                         <input
-                          type="number" step="0.1" min="0"
+                          type="text" inputMode="decimal"
                           value={dim.quantity}
                           onChange={(e) => {
                             const updatedDims = [...newEntry.dimensions];
@@ -689,10 +666,9 @@ export default function ProductionManagement() {
                       color: "var(--color-foreground)"
                     }}
                   >
-                    <option value="sale">Vente</option>
-                    <option value="transfer">Transfert</option>
-                    <option value="loss">Perte</option>
-                    <option value="sample">Échantillon</option>
+                    <option value="vente">Vente</option>
+                    <option value="don">Don</option>
+                    <option value="auto_consommation">Auto consommation</option>
                   </select>
                 </div>
                 <div>
@@ -731,10 +707,7 @@ export default function ProductionManagement() {
                           {isOverstock && <span style={{ color: "var(--color-error)" }}> ⚠ Dépassement</span>}
                         </label>
                         <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max={available}
+                          type="text" inputMode="decimal"
                           value={dim.quantity}
                           onChange={(e) => {
                             const updatedDims = [...newExit.dimensions];
@@ -790,72 +763,6 @@ export default function ProductionManagement() {
                 })}
               >
                 Enregistrer la Sortie
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Objectifs de Production */}
-      {showObjectivesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "var(--color-card)" }}>
-            <h3 className="text-lg font-semibold mb-4 sticky top-0 pb-4 border-b" style={{ color: "var(--color-foreground)", borderColor: "var(--color-border)" }}>
-              Objectifs de Production par Dimension
-            </h3>
-            {/* Minerai et Forage en haut — champs principaux */}
-            <div className="grid grid-cols-2 gap-4 mb-5 p-4 rounded-lg" style={{ background: "var(--color-muted)" }}>
-              {['Minerai', 'Forage'].map(dim => (
-                <div key={dim}>
-                  <label className="block text-sm font-semibold mb-1" style={{ color: "var(--color-foreground)" }}>
-                    {dim} (t/jour)
-                  </label>
-                  <input
-                    type="number"
-                    value={objectives[dim] ?? 0}
-                    onChange={(e) => setObjectives({ ...objectives, [dim]: parseFloat(e.target.value) || 0 })}
-                    className="w-full p-2 rounded border text-base font-bold"
-                    style={{ borderColor: "var(--color-primary)", background: "var(--color-background)", color: "var(--color-foreground)" }}
-                    placeholder="0"
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Autres dimensions */}
-            <p className="text-xs font-medium mb-2" style={{ color: "var(--color-muted-foreground)" }}>AUTRES DIMENSIONS</p>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {DIMENSIONS_LIST.filter(d => d !== 'Minerai' && d !== 'Forage').map(dimension => (
-                <div key={dimension}>
-                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
-                    {dimension} (t/jour)
-                  </label>
-                  <input
-                    type="number"
-                    value={objectives[dimension] ?? 0}
-                    onChange={(e) => setObjectives({ ...objectives, [dimension]: parseFloat(e.target.value) || 0 })}
-                    className="w-full p-2 rounded border"
-                    style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }}
-                    placeholder="0"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 mt-6 justify-end sticky bottom-0 bg-card pt-4 border-t" style={{ backgroundColor: "var(--color-card)", borderColor: "var(--color-border)" }}>
-              <Button
-                variant="outline"
-                onClick={() => setShowObjectivesModal(false)}
-              >
-                Annuler
-              </Button>
-              <Button
-                variant="default"
-                onClick={() => {
-                  toastSuccess("Objectifs sauvegardés");
-                  setShowObjectivesModal(false);
-                }}
-              >
-                Sauvegarder
               </Button>
             </div>
           </div>

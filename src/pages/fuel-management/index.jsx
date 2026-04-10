@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ResponsiveContainer } from 'recharts';
 import AppLayout from "../../components/navigation/AppLayout";
 import Icon from "../../components/AppIcon";
 import Button from "../../components/ui/Button";
@@ -9,528 +8,470 @@ import { useAuth } from "../../context/AuthContext";
 import toast from "../../utils/toast";
 import { default as hotToast } from "react-hot-toast";
 
+const FUEL_TYPES = [
+  { value: 'gasoil',  label: 'Gasoil' },
+  { value: 'essence', label: 'Essence' },
+ 
+];
+
+const EMPTY_FORM = {
+  date:           new Date().toISOString().split('T')[0],
+  equipment_id:   '',
+  type:           'entry',
+  fuel_type:      'gasoil',
+  quantity:       '',
+  cost_per_liter: '',
+  supplier:       '',
+  operator_name:  '',
+  notes:          '',
+};
+
+const inputStyle = {
+  borderColor: 'var(--color-border)',
+  background:  'var(--color-input)',
+  color:       'var(--color-foreground)',
+};
+
 export default function FuelManagement() {
   const navigate = useNavigate();
-  const [consumption, setConsumption] = useState([]);
-  const [equipment, setEquipment] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newEntry, setNewEntry] = useState({
-    date: '',
-    equipment_id: '',
-    fuel_type: 'gasoil',
-    quantity: '',
-    cost_per_liter: '',
-    supplier: '',
-    operator_name: '',
-    notes: ''
-  });
+  const [transactions, setTransactions] = useState([]);
+  const [equipment, setEquipment]       = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(false);
+  const [showModal, setShowModal]       = useState(false);
+  const [editItem, setEditItem]         = useState(null);
+  const [filterType, setFilterType]     = useState('all');
+  const [filterEq, setFilterEq]         = useState('all');
+  const [form, setForm]                 = useState(EMPTY_FORM);
   const { user } = useAuth();
-  const userRole = user?.role;
 
-  const loadFuelData = async () => {
+  /* ── Chargement ── */
+  const loadData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await miningService.getFuelTransactions(userRole);
-      if (error) {
-        toast.error(`Erreur chargement: ${error.message}`);
-      } else {
-        // Map data for UI
-        const mappedData = data?.map(item => ({
-          ...item,
-          date: item.transaction_date,
-          equipment: item.equipment?.name || item.equipment_id,
-          operator: item.operator_name || 'N/A',
-          site: item.site?.name || 'N/A',
-          cost: parseFloat(item.total_cost || (item.quantity * item.cost_per_liter || 0)).toFixed(2),
-          efficiency: '--' // From summary if needed
-        })) || [];
-        setConsumption(mappedData);
+      const [fuelRes, eqRes] = await Promise.all([
+        miningService.getFuelTransactions(),
+        miningService.getEquipment(user?.role),
+      ]);
+      if (fuelRes.error) toast.error(`Erreur: ${fuelRes.error.message}`);
+      else {
+        setTransactions((fuelRes.data || []).map(t => ({
+          ...t,
+          date: t.transaction_date,
+          type: t.transaction_type || 'exit',
+        })));
       }
-    } catch (error) {
-      toast.error('Erreur de chargement des données carburant');
+      setEquipment(eqRes.data || []);
+    } catch {
+      toast.error('Erreur de chargement');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadEquipment = async () => {
-    try {
-      const { data, error } = await miningService.getEquipment(userRole);
-      if (error) throw error;
-      setEquipment(data || []);
-    } catch (error) {
-      console.error('Erreur de chargement des équipements:', error);
-      setEquipment([]);
-    }
+  useEffect(() => { loadData(); }, []);
+
+  /* ── Calculs globaux ── */
+  const totalIn  = transactions.filter(t => t.type === 'entry').reduce((s, t) => s + +t.quantity, 0);
+  const totalOut = transactions.filter(t => t.type === 'exit').reduce((s, t) => s + +t.quantity, 0);
+  const stock    = Math.max(0, totalIn - totalOut);
+
+  const consumptionByEq = equipment
+    .map(eq => {
+      const exits   = transactions.filter(t => t.equipment_id === eq.id && t.type === 'exit');
+      const totalOut = exits.reduce((s, t) => s + +t.quantity, 0);
+      const totalCost = exits.reduce((s, t) => s + +(t.total_cost || 0), 0);
+      return { ...eq, totalOut, totalCost };
+    })
+    .filter(eq => eq.totalOut > 0)
+    .sort((a, b) => b.totalOut - a.totalOut);
+
+  const eqName = id => equipment.find(e => e.id === id)?.name || '—';
+
+  const filtered = transactions.filter(t => {
+    if (filterType !== 'all' && t.type !== filterType) return false;
+    if (filterEq !== 'all' && t.equipment_id !== filterEq) return false;
+    return true;
+  });
+
+  /* ── Ouverture modal ── */
+  const openNew = () => {
+    setForm(EMPTY_FORM);
+    setEditItem(null);
+    setShowModal(true);
   };
 
-  useEffect(() => {
-    loadFuelData();
-    loadEquipment();
-  }, []);
+  const openEdit = item => {
+    setForm({
+      date:           item.date || '',
+      equipment_id:   item.equipment_id || '',
+      type:           item.type || 'exit',
+      fuel_type:      item.fuel_type || 'gasoil',
+      quantity:       item.quantity || '',
+      cost_per_liter: item.cost_per_liter || '',
+      supplier:       item.supplier || '',
+      operator_name:  item.operator_name || '',
+      notes:          item.notes || '',
+    });
+    setEditItem(item);
+    setShowModal(true);
+  };
 
-  const totalConsumption = consumption.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
-  const totalCost = consumption.reduce((sum, item) => sum + parseFloat(item.cost || 0), 0);
-  const avgCostPerL = consumption.length > 0 ? (totalCost / totalConsumption).toFixed(2) : 0;
-
-  // Données pour le graphique Consommation par Machine
-  const consumptionByMachine = consumption.reduce((acc, item) => {
-    const machine = item.equipment || 'Inconnu';
-    if (!acc[machine]) {
-      acc[machine] = 0;
+  /* ── Sauvegarde ── */
+  const handleSave = async () => {
+    if (!form.date || !form.quantity || +form.quantity <= 0) {
+      toast.error('Date et quantité obligatoires');
+      return;
     }
-    acc[machine] += parseFloat(item.quantity || 0);
-    return acc;
-  }, {});
-
-  const consumptionChartData = Object.entries(consumptionByMachine).map(([machine, qty]) => ({
-    machine: machine.length > 15 ? machine.substring(0, 15) + '...' : machine,
-    consommation: Math.round(qty * 100) / 100
-  }));
-
-  // Données pour le graphique Évolution Coûts
-  const costByDate = consumption.reduce((acc, item) => {
-    const date = item.date ? new Date(item.date).toISOString().split('T')[0] : 'Inconnue';
-    if (!acc[date]) {
-      acc[date] = 0;
+    if (form.type === 'exit') {
+      if (!form.equipment_id) {
+        toast.error('Sélectionnez un équipement pour la sortie');
+        return;
+      }
+      if (+form.quantity > stock) {
+        toast.error(`Stock insuffisant. Disponible : ${stock.toFixed(1)} L`);
+        return;
+      }
     }
-    acc[date] += parseFloat(item.cost || 0);
-    return acc;
-  }, {});
-
-  const costEvolutionData = Object.entries(costByDate)
-    .sort(([a], [b]) => new Date(a) - new Date(b))
-    .map(([date, cost]) => ({
-      date: new Date(date).toLocaleDateString('fr-FR'),
-      coût: Math.round(cost * 100) / 100
-    }));
-
-  const handleAddFuelEntry = async () => {
-    if (!newEntry.date || !newEntry.equipment_id || !newEntry.quantity || !newEntry.cost_per_liter) {
-      toast.error('Veuillez remplir tous les champs obligatoires');
+    if (form.type === 'entry' && (!form.cost_per_liter || +form.cost_per_liter <= 0)) {
+      toast.error('Le prix par litre est obligatoire pour une entrée');
       return;
     }
 
-    const loadingId = hotToast.loading('Enregistrement...', { position: 'top-right' });
+    const loadId = hotToast.loading('Enregistrement...', { position: 'top-right' });
+    setSaving(true);
     try {
-      const { data, error } = await miningService.addFuelTransaction(newEntry);
-      toast.dismiss(loadingId);
-      if (error) {
-        toast.error(`Erreur: ${error.message}`);
-      } else {
-        toast.success(`Consommation enregistrée: ${newEntry.quantity}L`);
-        setShowAddModal(false);
-        setNewEntry({
-          date: '',
-          equipment_id: '',
-          fuel_type: 'gasoil',
-          quantity: '',
-          cost_per_liter: '',
-          supplier: '',
-          operator_name: '',
-          notes: ''
-        });
-        loadFuelData();
-      }
-    } catch (error) {
-      toast.dismiss(loadingId);
-      toast.error('Erreur lors de l\'enregistrement');
+      const { error } = editItem
+        ? await miningService.updateFuelTransaction(editItem.id, form)
+        : await miningService.addFuelTransaction(form);
+      toast.dismiss(loadId);
+      if (error) { toast.error(`Erreur: ${error.message}`); return; }
+      toast.success(editItem ? 'Transaction mise à jour' : `Transaction enregistrée: ${form.quantity} L`);
+      setShowModal(false);
+      setForm(EMPTY_FORM);
+      setEditItem(null);
+      loadData();
+    } catch {
+      toast.dismiss(loadId);
+      toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
     }
   };
 
+  /* ── Suppression ── */
+  const handleDelete = async item => {
+    if (!window.confirm(`Supprimer la transaction du ${item.date} (${item.quantity} L) ?`)) return;
+    const loadId = hotToast.loading('Suppression...', { position: 'top-right' });
+    try {
+      const { error } = await miningService.deleteFuelTransaction(item.id);
+      toast.dismiss(loadId);
+      if (error) { toast.error(`Erreur: ${error.message}`); return; }
+      toast.success('Transaction supprimée');
+      loadData();
+    } catch {
+      toast.dismiss(loadId);
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  /* ── Chargement ── */
+  if (loading) return (
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: 'var(--color-primary)' }} />
+      </div>
+    </AppLayout>
+  );
+
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="Amp Mines et Carrieres">
-      {/* Header same as before */}
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+
+      {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
-            Gestion du Carburant
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--color-muted-foreground)" }}>
-            Suivi de la consommation et des coûts de carburant par machine
-          </p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-foreground)' }}>Gestion de Stock Carburant</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-muted-foreground)' }}>Suivi des entrées et sorties de carburant par équipement</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            iconName="Wrench"
-            iconPosition="left"
-            onClick={() => navigate("/equipment-management")}
-          >
-            Gérer Équipements
+        <div className="flex flex-wrap gap-2">
+          <Button variant="default" iconName="Plus" iconPosition="left" onClick={openNew}>
+            Nouvelle Transaction
           </Button>
-          <Button
-            variant="default"
-            iconName="Plus"
-            iconPosition="left"
-            onClick={() => setShowAddModal(true)}
-          >
-            Ajouter Consommation
-          </Button>
-          <Button
-            variant="outline"
-            iconName="ArrowLeft"
-            iconPosition="left"
-            onClick={() => navigate("/")}
-          >
-            Retour
-          </Button>
+          <Button variant="outline" iconName="RefreshCw" iconPosition="left" onClick={loadData}>Actualiser</Button>
+          <Button variant="outline" iconName="ArrowLeft" iconPosition="left" onClick={() => navigate('/')}>Retour</Button>
         </div>
       </div>
 
-      {/* Stats cards - updated */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 rounded-xl border" style={{ background: "var(--color-card)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(229,62,62,0.12)" }}>
-              <Icon name="Fuel" size={20} color="var(--color-error)" />
-            </div>
-            <div>
-              <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Total Consommé</p>
-              <p className="text-xl font-bold" style={{ color: "var(--color-foreground)" }}>{totalConsumption.toFixed(0)} L</p>
+      {/* ── Avertissement ── */}
+      {equipment.length === 0 && (
+        <div className="mb-6 p-4 rounded-xl border flex items-center gap-4"
+          style={{ background: 'rgba(245,158,11,0.08)', borderColor: 'var(--color-warning)' }}>
+          <Icon name="AlertTriangle" size={24} color="var(--color-warning)" />
+          <div className="flex-1">
+            <p className="font-semibold" style={{ color: 'var(--color-warning)' }}>Aucun équipement configuré</p>
+            <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
+              Les entrées de stock sont toujours possibles. Ajoutez des équipements pour enregistrer des sorties.
+            </p>
+          </div>
+          <Button variant="outline" iconName="Wrench" iconPosition="left" onClick={() => navigate('/equipment-management')}>
+            Équipements
+          </Button>
+        </div>
+      )}
+
+      {/* ── KPIs ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Total Entrées',          value: `${totalIn.toFixed(1)} L`,  icon: 'TrendingUp',   color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
+          { label: 'Total Sorties',          value: `${totalOut.toFixed(1)} L`, icon: 'TrendingDown', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+          { label: 'Stock Global',           value: `${stock.toFixed(1)} L`,    icon: 'Package',      color: '#3182CE', bg: 'rgba(49,130,206,0.12)' },
+          { label: 'Équipements consommateurs', value: consumptionByEq.length,  icon: 'Wrench',       color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+        ].map((k, i) => (
+          <div key={i} className="p-4 rounded-xl border" style={{ background: 'var(--color-card)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: k.bg }}>
+                <Icon name={k.icon} size={20} color={k.color} />
+              </div>
+              <div>
+                <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>{k.label}</p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-foreground)' }}>{k.value}</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="p-4 rounded-xl border" style={{ background: "var(--color-card)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(229,62,62,0.12)" }}>
-              <Icon name="Receipt" size={20} color="var(--color-error)" />
-            </div>
-            <div>
-              <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Coût Total</p>
-              <p className="text-xl font-bold" style={{ color: "var(--color-foreground)" }}>{totalCost.toLocaleString('fr-FR')} FCFA</p>
-            </div>
-          </div>
-        </div>
-        <div className="p-4 rounded-xl border" style={{ background: "var(--color-card)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(49,130,206,0.12)" }}>
-              <Icon name="DollarSign" size={20} color="#3182CE" />
-            </div>
-            <div>
-              <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Coût Moyen/L</p>
-              <p className="text-xl font-bold" style={{ color: "var(--color-foreground)" }}>{avgCostPerL} FCFA</p>
-            </div>
-          </div>
-        </div>
-        <div className="p-4 rounded-xl border" style={{ background: "var(--color-card)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(56,161,105,0.12)" }}>
-              <Icon name="TrendingUp" size={20} color="var(--color-success)" />
-            </div>
-            <div>
-              <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Transactions</p>
-              <p className="text-xl font-bold" style={{ color: "var(--color-foreground)" }}>{consumption.length}</p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Table same structure, but data from state */}
-      <div className="rounded-xl border" style={{ background: "var(--color-card)" }}>
-        <div className="p-4 border-b" style={{ borderColor: "var(--color-border)" }}>
-          <h2 className="text-lg font-semibold" style={{ color: "var(--color-foreground)" }}>
-            Historique des Consommations
-          </h2>
+      {/* ── Consommation par équipement ── */}
+      {consumptionByEq.length > 0 && (
+        <div className="rounded-xl border mb-6" style={{ background: 'var(--color-card)' }}>
+          <div className="p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--color-foreground)' }}>Consommation par Équipement</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[650px]">
+              <thead>
+                <tr className="border-b text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}>
+                  <th className="text-left p-4">Équipement</th>
+                  <th className="text-left p-4">Type</th>
+                  <th className="text-left p-4">Consommé</th>
+                  <th className="text-left p-4">Coût total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {consumptionByEq.map(eq => (
+                  <tr key={eq.id} className="border-b" style={{ borderColor: 'var(--color-border)' }}>
+                    <td className="p-4 font-medium" style={{ color: 'var(--color-foreground)' }}>{eq.name}</td>
+                    <td className="p-4 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>{eq.type || '—'}</td>
+                    <td className="p-4 font-bold" style={{ color: 'var(--color-error)' }}>{eq.totalOut.toFixed(1)} L</td>
+                    <td className="p-4 font-medium" style={{ color: 'var(--color-foreground)' }}>
+                      {eq.totalCost > 0 ? `${eq.totalCost.toLocaleString('fr-FR')} FCFA` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Historique ── */}
+      <div className="rounded-xl border" style={{ background: 'var(--color-card)' }}>
+        <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-foreground)' }}>Historique des Transactions</h2>
+          <div className="flex gap-2">
+            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="p-2 rounded border text-sm"
+              style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-foreground)' }}>
+              <option value="all">Entrées &amp; Sorties</option>
+              <option value="entry">Entrées</option>
+              <option value="exit">Sorties</option>
+            </select>
+            <select value={filterEq} onChange={e => setFilterEq(e.target.value)} className="p-2 rounded border text-sm"
+              style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-foreground)' }}>
+              <option value="all">Tous les équipements</option>
+              {equipment.map(eq => <option key={eq.id} value={eq.id}>{eq.name}</option>)}
+            </select>
+          </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[650px]">
             <thead>
-              <tr className="border-b" style={{ borderColor: "var(--color-border)" }}>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Date</th>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Machine</th>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Opérateur</th>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Type</th>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Quantité (L)</th>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Coût (FCFA)</th>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Site</th>
-                <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Actions</th>
+              <tr className="border-b text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}>
+                <th className="text-left p-4">Date</th>
+                <th className="text-left p-4">Type</th>
+                <th className="text-left p-4">Équipement</th>
+                <th className="text-left p-4">Carburant</th>
+                <th className="text-left p-4">Quantité</th>
+                <th className="text-left p-4">Prix/L</th>
+                <th className="text-left p-4">Coût total</th>
+                <th className="text-left p-4">Opérateur</th>
+                <th className="text-left p-4">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="p-8 text-center" style={{ color: "var(--color-muted-foreground)" }}>
-                    Chargement...
+                  <td colSpan={9} className="p-8 text-center" style={{ color: 'var(--color-muted-foreground)' }}>
+                    Aucune transaction enregistrée
                   </td>
                 </tr>
-              ) : consumption.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="p-8 text-center" style={{ color: "var(--color-muted-foreground)" }}>
-                    Aucune consommation enregistrée. Ajoutez la première !
+              ) : filtered.map(tx => (
+                <tr key={tx.id} className="border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <td className="p-4 text-sm" style={{ color: 'var(--color-foreground)' }}>{tx.date}</td>
+                  <td className="p-4">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium" style={{
+                      background: tx.type === 'entry' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                      color:      tx.type === 'entry' ? 'var(--color-success)'  : 'var(--color-error)',
+                    }}>
+                      {tx.type === 'entry' ? 'Entrée' : 'Sortie'}
+                    </span>
+                  </td>
+                  <td className="p-4 font-medium" style={{ color: 'var(--color-foreground)' }}>
+                    {tx.equipment?.name || eqName(tx.equipment_id)}
+                  </td>
+                  <td className="p-4 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>{tx.fuel_type}</td>
+                  <td className="p-4 font-bold" style={{ color: tx.type === 'entry' ? 'var(--color-success)' : 'var(--color-error)' }}>
+                    {tx.type === 'entry' ? '+' : '-'}{(+tx.quantity).toFixed(1)} L
+                  </td>
+                  <td className="p-4 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
+                    {tx.cost_per_liter ? `${(+tx.cost_per_liter).toLocaleString('fr-FR')} FCFA` : '—'}
+                  </td>
+                  <td className="p-4 text-sm" style={{ color: 'var(--color-foreground)' }}>
+                    {tx.total_cost ? `${(+tx.total_cost).toLocaleString('fr-FR')} FCFA` : '—'}
+                  </td>
+                  <td className="p-4 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>{tx.operator_name || '—'}</td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(tx)} className="p-1.5 rounded hover:bg-gray-100" title="Modifier">
+                        <Icon name="Edit" size={15} color="var(--color-primary)" />
+                      </button>
+                      <button onClick={() => handleDelete(tx)} className="p-1.5 rounded hover:bg-gray-100" title="Supprimer">
+                        <Icon name="Trash2" size={15} color="var(--color-error)" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                consumption.map((item) => (
-                  <tr key={item.id} className="border-b" style={{ borderColor: "var(--color-border)" }}>
-                    <td className="p-4" style={{ color: "var(--color-foreground)" }}>{item.date}</td>
-                    <td className="p-4 font-medium" style={{ color: "var(--color-foreground)" }}>{item.equipment}</td>
-                    <td className="p-4" style={{ color: "var(--color-foreground)" }}>{item.operator}</td>
-                    <td className="p-4 px-2 py-1 rounded text-xs" style={{ 
-                      background: "rgba(56,161,105,0.12)", 
-                      color: "var(--color-success)",
-                      fontFamily: "monospace"
-                    }}>{item.fuel_type}</td>
-                    <td className="p-4 font-semibold" style={{ color: "var(--color-foreground)" }}>{item.quantity}</td>
-                    <td className="p-4" style={{ color: "var(--color-foreground)" }}>{item.cost}</td>
-                    <td className="p-4" style={{ color: "var(--color-foreground)" }}>{item.site}</td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" iconName="Edit" />
-                        <Button variant="ghost" size="sm" iconName="Trash2" />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <div className="rounded-xl border p-6" style={{ background: "var(--color-card)" }}>
-          <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--color-foreground)" }}>
-            Consommation par Machine
-          </h3>
-          <div className="h-64">
-            {consumptionChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={consumptionChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis 
-                    dataKey="machine" 
-                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip formatter={(value) => [`${value} L`, 'Consommation']} />
-                  <Legend />
-                  <Bar dataKey="consommation" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center bg-muted/30 rounded-lg" style={{ color: "var(--color-muted-foreground)" }}>
-                Aucune donnée disponible
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="rounded-xl border p-6" style={{ background: "var(--color-card)" }}>
-          <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--color-foreground)" }}>
-            Évolution Coûts
-          </h3>
-          <div className="h-64">
-            {costEvolutionData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={costEvolutionData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-caption)" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip formatter={(value) => [`${value} FCFA`, 'Coût']} />
-                  <Legend />
-                  <Line type="monotone" dataKey="coût" stroke="var(--color-warning)" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center bg-muted/30 rounded-lg" style={{ color: "var(--color-muted-foreground)" }}>
-                Aucune donnée disponible
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Simplified Modal - matches schema */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "var(--color-card)" }}>
-            <h3 className="text-lg font-semibold mb-6" style={{ color: "var(--color-foreground)" }}>
-              Nouvelle Consommation Carburant
+      {/* ── Modal ── */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" style={{ background: 'var(--color-card)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-foreground)' }}>
+              {editItem ? 'Modifier la Transaction' : 'Nouvelle Transaction Carburant'}
             </h3>
+
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={newEntry.date}
-                  onChange={(e) => setNewEntry({...newEntry, date: e.target.value})}
-                  className="w-full p-3 rounded-lg border transition-colors"
-                  style={{ 
-                    borderColor: "var(--color-border)",
-                    background: "var(--color-input)",
-                    color: "var(--color-foreground)"
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                  Équipement *
-                </label>
-                <select
-                  value={newEntry.equipment_id}
-                  onChange={(e) => setNewEntry({...newEntry, equipment_id: e.target.value})}
-                  className="w-full p-3 rounded-lg border transition-colors"
-                  style={{ 
-                    borderColor: "var(--color-border)",
-                    background: "var(--color-input)",
-                    color: "var(--color-foreground)"
-                  }}
-                >
-                  <option value="">Sélectionner un équipement</option>
-                  {equipment.map((equip) => (
-                    <option key={equip.id} value={equip.id}>
-                      {equip.name} ({equip.serial_number})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                  Type Carburant *
-                </label>
-                <select
-                  value={newEntry.fuel_type}
-                  onChange={(e) => setNewEntry({...newEntry, fuel_type: e.target.value})}
-                  className="w-full p-3 rounded-lg border transition-colors"
-                  style={{ 
-                    borderColor: "var(--color-border)",
-                    background: "var(--color-input)",
-                    color: "var(--color-foreground)"
-                  }}
-                >
-                  <option value="essence">Essence</option>
-                  <option value="gasoil">Gasoil</option>
-                </select>
-              </div>
+              {/* Date + Type */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                    Quantité (L) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={newEntry.quantity}
-                    onChange={(e) => setNewEntry({...newEntry, quantity: parseFloat(e.target.value) || ''})}
-                    className="w-full p-3 rounded-lg border transition-colors"
-                    style={{ 
-                      borderColor: "var(--color-border)",
-                      background: "var(--color-input)",
-                      color: "var(--color-foreground)"
-                    }}
-                  />
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Date *</label>
+                  <input type="date" value={form.date}
+                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full p-2 rounded border" style={inputStyle} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                    Prix/L (FCFA) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newEntry.cost_per_liter}
-                    onChange={(e) => setNewEntry({...newEntry, cost_per_liter: parseFloat(e.target.value) || ''})}
-                    className="w-full p-3 rounded-lg border transition-colors"
-                    style={{ 
-                      borderColor: "var(--color-border)",
-                      background: "var(--color-input)",
-                      color: "var(--color-foreground)"
-                    }}
-                  />
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Type *</label>
+                  <select value={form.type}
+                    onChange={e => setForm(f => ({ ...f, type: e.target.value, equipment_id: '' }))}
+                    className="w-full p-2 rounded border" style={inputStyle}>
+                    <option value="entry">Entrée (stock reçu)</option>
+                    <option value="exit">Sortie (consommation)</option>
+                  </select>
                 </div>
               </div>
-              {/* Total calculé en temps réel */}
-              {newEntry.quantity && newEntry.cost_per_liter && (
-                <div className="p-3 rounded-lg" style={{ background: "rgba(44,85,48,0.08)", border: "1px solid var(--color-primary)" }}>
-                  <p className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
-                    Total: {(parseFloat(newEntry.quantity) * parseFloat(newEntry.cost_per_liter)).toLocaleString('fr-FR')} FCFA
+
+              {/* Type de carburant */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Type de carburant *</label>
+                <select value={form.fuel_type}
+                  onChange={e => setForm(f => ({ ...f, fuel_type: e.target.value }))}
+                  className="w-full p-2 rounded border" style={inputStyle}>
+                  {FUEL_TYPES.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
+                </select>
+              </div>
+
+              {/* Équipement — seulement pour les sorties */}
+              {form.type === 'exit' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Équipement *</label>
+                  <select value={form.equipment_id}
+                    onChange={e => setForm(f => ({ ...f, equipment_id: e.target.value }))}
+                    className="w-full p-2 rounded border" style={inputStyle}>
+                    <option value="">Sélectionner un équipement</option>
+                    {equipment.map(eq => <option key={eq.id} value={eq.id}>{eq.name}</option>)}
+                  </select>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-muted-foreground)' }}>
+                    Stock disponible : <strong style={{ color: 'var(--color-success)' }}>{stock.toFixed(1)} L</strong>
                   </p>
                 </div>
               )}
+
+              {/* Quantité */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                  Opérateur
-                </label>
-                <input
-                  type="text"
-                  value={newEntry.operator_name}
-                  onChange={(e) => setNewEntry({...newEntry, operator_name: e.target.value})}
-                  className="w-full p-3 rounded-lg border transition-colors"
-                  style={{
-                    borderColor: "var(--color-border)",
-                    background: "var(--color-input)",
-                    color: "var(--color-foreground)"
-                  }}
-                  placeholder="Nom de l'opérateur"
-                />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Quantité (L) *</label>
+                <input type="number" step="0.1" min="0" value={form.quantity} placeholder="0.0"
+                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+                  className="w-full p-2 rounded border" style={inputStyle} />
               </div>
+
+              {/* Prix/L — seulement pour les entrées */}
+              {form.type === 'entry' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Prix par litre (FCFA) *</label>
+                  <input type="number" step="0.01" min="0" value={form.cost_per_liter} placeholder="0.00"
+                    onChange={e => setForm(f => ({ ...f, cost_per_liter: e.target.value }))}
+                    className="w-full p-2 rounded border" style={inputStyle} />
+                  {form.quantity && form.cost_per_liter && +form.quantity > 0 && +form.cost_per_liter > 0 && (
+                    <p className="text-xs mt-1 font-semibold" style={{ color: 'var(--color-success)' }}>
+                      Total : {(+form.quantity * +form.cost_per_liter).toLocaleString('fr-FR')} FCFA
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Fournisseur — seulement pour les entrées */}
+              {form.type === 'entry' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Fournisseur</label>
+                  <input type="text" value={form.supplier} placeholder="Ex : Total Energies"
+                    onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}
+                    className="w-full p-2 rounded border" style={inputStyle} />
+                </div>
+              )}
+
+              {/* Opérateur */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                  Fournisseur
-                </label>
-                <input
-                  type="text"
-                  value={newEntry.supplier}
-                  onChange={(e) => setNewEntry({...newEntry, supplier: e.target.value})}
-                  className="w-full p-3 rounded-lg border transition-colors"
-                  style={{
-                    borderColor: "var(--color-border)",
-                    background: "var(--color-input)",
-                    color: "var(--color-foreground)"
-                  }}
-                  placeholder="Fournisseur optionnel"
-                />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Opérateur</label>
+                <input type="text" value={form.operator_name} placeholder="Nom de l'opérateur"
+                  onChange={e => setForm(f => ({ ...f, operator_name: e.target.value }))}
+                  className="w-full p-2 rounded border" style={inputStyle} />
               </div>
+
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-foreground)" }}>
-                  Notes
-                </label>
-                <textarea
-                  value={newEntry.notes}
-                  onChange={(e) => setNewEntry({...newEntry, notes: e.target.value})}
-                  rows="2"
-                  className="w-full p-3 rounded-lg border transition-colors resize-vertical"
-                  style={{ 
-                    borderColor: "var(--color-border)",
-                    background: "var(--color-input)",
-                    color: "var(--color-foreground)"
-                  }}
-                  placeholder="Notes optionnelles..."
-                />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>Notes</label>
+                <textarea value={form.notes} rows="2" placeholder="Notes optionnelles..."
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full p-2 rounded border" style={inputStyle} />
               </div>
             </div>
-            <div className="flex gap-3 mt-8 pt-4 border-t" style={{ borderColor: "var(--color-border)" }}>
-              <Button variant="default" onClick={handleAddFuelEntry} className="flex-1">
-                Enregistrer
-              </Button>
-              <Button variant="outline" onClick={() => setShowAddModal(false)} className="flex-1">
+
+            <div className="flex gap-3 mt-6 justify-end">
+              <Button variant="outline" onClick={() => { setShowModal(false); setForm(EMPTY_FORM); setEditItem(null); }}>
                 Annuler
+              </Button>
+              <Button variant="default" onClick={handleSave} disabled={saving}>
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
               </Button>
             </div>
           </div>
         </div>
       )}
+
     </AppLayout>
   );
 }
-

@@ -50,6 +50,22 @@ const MODULE_CONFIG = {
     ],
     operatorCol: 'operator_name',
   },
+  oil: {
+    label: 'Huile',
+    icon: '🛢️',
+    table: 'oil_transactions',
+    dateCol: 'transaction_date',
+    cols: [
+      { key: 'transaction_date', label: 'Date' },
+      { key: 'equipment_id', label: 'Équipement' },
+      { key: 'transaction_type', label: 'Type' },
+      { key: 'quantity', label: 'Quantité (L)' },
+      { key: 'oil_type', label: 'Type d\'Huile' },
+      { key: 'operator_name', label: 'Opérateur' },
+      { key: 'supplier', label: 'Fournisseur' },
+    ],
+    operatorCol: 'operator_name',
+  },
   accounting: {
     label: 'Comptabilité',
     icon: '💰',
@@ -117,7 +133,7 @@ export default function DataExplorer() {
   };
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="Amp Mines et Carrieres Exploration & Mines">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
       <div className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
           Exploration des Données

@@ -8,11 +8,13 @@ import Button from "components/ui/Button";
 import KPICard from "./components/KPICard";
 import ProductionChart from "./components/ProductionChart";
 import FuelCostChart from "./components/FuelCostChart";
+import OilConsumptionChart from "./components/OilConsumptionChart";
 import ProfitabilityChart from "./components/ProfitabilityChart";
 import AlertsPanel from "./components/AlertsPanel";
 import FinancialSummary from "./components/FinancialSummary";
 import SiteStatusTable from "./components/SiteStatusTable";
 import ExportPanel from "./components/ExportPanel";
+import ExpensesChart from "./components/ExpensesChart";
 
 export default function ExecutiveDashboard() {
   const navigate = useNavigate();
@@ -50,7 +52,7 @@ export default function ExecutiveDashboard() {
           bgColor: "rgba(44,85,48,0.12)",
           subtitle: "Production aujourd'hui",
           color: "var(--color-primary)",
-          progress: Math.min(100, (Number(data.total_production) / 1500) * 100),
+          progress: Math.min(100, (Number(data.total_production) / 1000) * 100),
           progressColor: "var(--color-primary)",
         },
         {
@@ -85,18 +87,33 @@ export default function ExecutiveDashboard() {
         },
         {
           id: 4,
-          title: "Coût par Tonne",
-          value: Number(data.cost_per_ton || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 }),
-          unit: "FCFA/t",
-          trend: (data.cost_per_ton || 0) < 9 ? "up" : "down",
-          trendValue: (data.cost_per_ton || 0) < 9 ? "< 9 FCFA/t ✓" : "> 9 FCFA/t",
-          icon: "DollarSign",
-          iconColor: "#22C55E",
-          bgColor: "rgba(34,197,94,0.12)",
-          subtitle: "Objectif: < 9,00 FCFA/t",
-          color: "#22C55E",
-          progress: data.cost_per_ton > 0 ? Math.min(100, (9 / data.cost_per_ton) * 100) : 0,
-          progressColor: "#22C55E",
+          title: "Voyages Alimentés",
+          value: Number(data.total_voyages_alimentes || 0).toLocaleString('fr-FR'),
+          unit: "",
+          trend: data.total_voyages_alimentes > 0 ? "up" : "stable",
+          trendValue: "Cumulé total",
+          icon: "Truck",
+          iconColor: "#10B981",
+          bgColor: "rgba(16,185,129,0.12)",
+          subtitle: "Nombre de voyages alimentés",
+          color: "#10B981",
+          progress: 100,
+          progressColor: "#10B981",
+        },
+        {
+          id: 5,
+          title: "Trous Forés",
+          value: Number(data.total_trous_fores || 0).toLocaleString('fr-FR'),
+          unit: "",
+          trend: data.total_trous_fores > 0 ? "up" : "stable",
+          trendValue: "Cumulé total",
+          icon: "Target",
+          iconColor: "#8B5CF6",
+          bgColor: "rgba(139,92,246,0.12)",
+          subtitle: "Nombre de trous forés",
+          color: "#8B5CF6",
+          progress: 100,
+          progressColor: "#8B5CF6",
         },
       ]);
     } catch (err) {
@@ -118,7 +135,7 @@ export default function ExecutiveDashboard() {
   };
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'Amp Mines et Carrieres'}>
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SARL'}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
@@ -169,7 +186,7 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
         {kpiData?.map((kpi) => (
           <div key={kpi?.id} className="col-span-1">
             <KPICard
@@ -203,10 +220,25 @@ export default function ExecutiveDashboard() {
           <AlertsPanel onNavigate={navigate} dashboardData={dashboardData} />
         </div>
       </div>
-      {/* Second row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
-        <FuelCostChart data={dashboardData?.fuel_chart_data || []} />
+      {/* Second row — Carburant / Huile / Rentabilité */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+        <FuelCostChart
+          data={dashboardData?.fuel_chart_data || []}
+          weekStart={dashboardData?.week_start}
+          weekEnd={dashboardData?.week_end}
+        />
+        <OilConsumptionChart
+          data={dashboardData?.oil_chart_data || []}
+          weekStart={dashboardData?.week_start}
+          weekEnd={dashboardData?.week_end}
+        />
         <ProfitabilityChart data={dashboardData?.monthly_profit_data || []} />
+      </div>
+      {/* Third row — Répartition des dépenses */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="lg:col-span-1">
+          <ExpensesChart data={dashboardData?.expenses_by_category || []} />
+        </div>
       </div>
       {/* Financial summary + Export */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">

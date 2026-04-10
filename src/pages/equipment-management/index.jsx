@@ -22,7 +22,7 @@ export default function EquipmentManagement() {
     type: '',
     model: '',
     serial_number: '',
-    location: '',
+    site: '',
     status: 'active'
   });
   const [showEditModal, setShowEditModal] = useState(false);
@@ -58,7 +58,7 @@ export default function EquipmentManagement() {
       const { data, error } = await miningService.getEquipment(user?.role);
       if (error) throw error;
       if (data) {
-        // Filtrer les équipements retraités (soft-deleted)
+        // Filtrer les équipements s (soft-deleted)
         setEquipment(data);
       } else {
         setEquipment([]);
@@ -82,27 +82,36 @@ export default function EquipmentManagement() {
     }
   };
 
+  const genSerial = () => `EQ-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+
   const handleAddEquipment = async () => {
-    if (!newEquipment.name || !newEquipment.type || !newEquipment.model) {
-      toastError('Veuillez remplir les champs obligatoires (Code Engin, Type, Modèle)');
+    if (!newEquipment.name || !newEquipment.model) {
+      toastError('Veuillez remplir les champs obligatoires (Code Engin, Modèle)');
       return;
     }
 
     try {
       const equipmentToAdd = {
         name: newEquipment.name,
-        type: newEquipment.type,
+        type: newEquipment.type || 'truck',
         model: newEquipment.model,
-        serial_number: newEquipment.serial_number || `EQ-${Date.now()}`,
+        serial_number: newEquipment.serial_number?.trim() || genSerial(),
         status: newEquipment.status || 'active',
         purchase_date: new Date().toISOString().split('T')[0],
-        location: newEquipment.location || null,
+        location: newEquipment.site || null,
       };
       const { error } = await miningService.createEquipment(equipmentToAdd);
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505' || error.message?.includes('unique') || error.message?.includes('serial_number')) {
+          toastError('Ce numéro de série existe déjà. Utilisez un numéro différent ou laissez le champ vide pour en générer un automatiquement.');
+        } else {
+          toastError(`Erreur: ${error.message || 'Vérifiez vos permissions'}`);
+        }
+        return;
+      }
       await fetchEquipmentData();
       setShowAddModal(false);
-      setNewEquipment({ name: '', type: '', model: '', serial_number: '', location: '', status: 'active' });
+      setNewEquipment({ name: '', type: '', model: '', serial_number: '', site: '', status: 'active' });
       toastSuccess('Équipement ajouté avec succès');
     } catch (error) {
       console.error("Erreur ajout équipement:", error);
@@ -134,7 +143,7 @@ export default function EquipmentManagement() {
             name: newOperation.code_agent,
             type: newOperation.machine_type || 'Autre',
             model: '-',
-            serial_number: `EQ-${Date.now()}`,
+            serial_number: genSerial(),
             status: 'active',
             purchase_date: new Date().toISOString().split('T')[0],
           });
@@ -270,7 +279,7 @@ export default function EquipmentManagement() {
   };
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="Amp Mines et Carrieres">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
@@ -280,7 +289,7 @@ export default function EquipmentManagement() {
             Suivi du parc matériel et des opérations quotidiennes
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="default"
             iconName="Plus"
@@ -300,8 +309,7 @@ export default function EquipmentManagement() {
           >
             Actualiser les données
           </Button>
-         {/*
-<Button
+          <Button
             variant="outline"
             iconName="Clipboard"
             iconPosition="left"
@@ -309,8 +317,6 @@ export default function EquipmentManagement() {
           >
             Saisie Quotidienne
           </Button>
-            */
-         }
           
           <Button
             variant="outline"
@@ -413,13 +419,13 @@ export default function EquipmentManagement() {
               </h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[650px]">
                 <thead>
                   <tr className="border-b" style={{ borderColor: "var(--color-border)" }}>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Code Engin</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Type</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Modèle</th>
-                    <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Localisation</th>
+                    <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Site</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Statut</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Actions</th>
                   </tr>
@@ -448,7 +454,7 @@ export default function EquipmentManagement() {
                         </td>
                         <td className="p-4" style={{ color: "var(--color-foreground)" }}>{getMachineTypeLabel(item.type)}</td>
                         <td className="p-4" style={{ color: "var(--color-foreground)" }}>{item.model}</td>
-                        <td className="p-4" style={{ color: "var(--color-muted-foreground)" }}>{item.location || '—'}</td>
+                        <td className="p-4" style={{ color: "var(--color-muted-foreground)" }}>{item.location || item.site || '—'}</td>
                         <td className="p-4">
                           <span className="px-2 py-1 rounded-full text-xs font-medium"
                             style={{
@@ -552,7 +558,7 @@ export default function EquipmentManagement() {
               </h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[650px]">
                 <thead>
                   <tr className="border-b" style={{ borderColor: "var(--color-border)" }}>
                     <th className="text-left p-3 text-xs font-medium" style={{ color: "var(--color-muted-foreground)" }}>Date</th>
@@ -641,23 +647,6 @@ export default function EquipmentManagement() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Type *</label>
-                <select
-                  className="w-full p-2 rounded border"
-                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }}
-                  value={newEquipment.type}
-                  onChange={(e) => setNewEquipment({...newEquipment, type: e.target.value})}
-                >
-                  <option value="">Sélectionner un type...</option>
-                  <option value="excavator">Pelle hydraulique</option>
-                  <option value="drill">Foreuse</option>
-                  <option value="conveyor">Convoyeur</option>
-                  <option value="crusher">Concasseur</option>
-                  <option value="truck">Camion benne</option>
-                  <option value="loader">Chargeuse</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Modèle *</label>
                 <input
                   type="text"
@@ -680,12 +669,12 @@ export default function EquipmentManagement() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Localisation</label>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Site</label>
                 <input
                   type="text"
                   placeholder="ex: Carrière Nord"
-                  value={newEquipment.location}
-                  onChange={(e) => setNewEquipment({...newEquipment, location: e.target.value})}
+                  value={newEquipment.site}
+                  onChange={(e) => setNewEquipment({...newEquipment, site: e.target.value})}
                   className="w-full p-2 rounded border"
                   style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }}
                 />
@@ -735,7 +724,6 @@ export default function EquipmentManagement() {
                   <option value="active">Actif</option>
                   <option value="maintenance">Maintenance</option>
                   <option value="offline">Hors service</option>
-                  <option value="retired">Retraité</option>
                 </select>
               </div>
               <div className="flex gap-3 pt-2">

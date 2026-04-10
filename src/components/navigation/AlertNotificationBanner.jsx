@@ -43,12 +43,12 @@ function buildAlerts(data) {
   }
 
   const todayProd = data.total_production || 0;
-  if (todayProd > 0 && todayProd < 1500 * 0.8) {
+  if (todayProd > 0 && todayProd < 1000 * 0.8) {
     alerts.push({
       id: 'prod-low',
       type: 'warning',
       title: 'Objectif Production Non Atteint',
-      message: `Production à ${Math.round((todayProd / 1500) * 100)}% de l'objectif.`,
+      message: `Production à ${Math.round((todayProd / 1000) * 100)}% de l'objectif.`,
       path: '/production-management',
       icon: 'BarChart3',
       time: "Aujourd'hui",

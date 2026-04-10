@@ -36,7 +36,7 @@ const ROLE_CONFIG = {
 export default function UserRoleIndicator({
   userRole = 'admin',
   userName = 'JD',
-  userSite = 'Amp Mines et Carrieres Exploration & Mines',
+  userSite = 'African Mining Partenair SARL',
   isCollapsed = false,
   onLogout,
 }) {

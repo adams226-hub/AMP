@@ -22,8 +22,8 @@ export default function StockManagement() {
     date: '',
     source: '',
     dimensions: [
-      { size: 'Minerai', quantity: '' },
-      { size: 'Forage', quantity: '' },
+      { size: 'Nombre de voyages alimentés', quantity: '' },
+      { size: 'Nombre de trous forés', quantity: '' },
       { size: '0/4', quantity: '' },
       { size: '0/5', quantity: '' },
       { size: '0/6', quantity: '' },
@@ -41,8 +41,8 @@ export default function StockManagement() {
     date: '',
     destination: '',
     dimensions: [
-      { size: 'Minerai', quantity: '' },
-      { size: 'Forage', quantity: '' },
+      { size: 'Nombre de voyages alimentés', quantity: '' },
+      { size: 'Nombre de trous forés', quantity: '' },
       { size: '0/4', quantity: '' },
       { size: '0/5', quantity: '' },
       { size: '0/6', quantity: '' },
@@ -55,6 +55,19 @@ export default function StockManagement() {
       { size: '0/31,5', quantity: '' }
     ]
   });
+
+  const normalizeDimensionLabel = (dimension) => {
+    if (!dimension) return dimension;
+    if (dimension === 'Minerai' || dimension === 'Nombre de voyages alimentés' || dimension === 'Nombre de voyage alimenter') return 'Nombre de voyages alimentés';
+    if (dimension === 'Forage' || dimension === 'Nombre de trous forés' || dimension === 'Nombre de trous fore') return 'Nombre de trous forés';
+    return dimension;
+  };
+
+  const dimensionUnit = (dimension) => {
+    const norm = normalizeDimensionLabel(dimension);
+    if (norm === 'Nombre de voyages alimentés' || norm === 'Nombre de trous forés') return '';
+    return 't';
+  };
 
   useEffect(() => {
     loadStockData();
@@ -257,7 +270,7 @@ export default function StockManagement() {
 
   if (loading) {
     return (
-      <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'Amp Mines et Carrieres'}>
+      <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SARL'}>
         <div className="flex items-center justify-center h-64">
           <p style={{ color: "var(--color-muted-foreground)" }}>Chargement...</p>
         </div>
@@ -266,7 +279,7 @@ export default function StockManagement() {
   }
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'Amp Mines et Carrieres'}>
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SARL'}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>

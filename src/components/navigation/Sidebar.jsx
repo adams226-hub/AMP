@@ -36,6 +36,14 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    id: 'oil',
+    label: 'Huile',
+    icon: 'Droplets',
+    path: '/oil-management',
+    roles: ['admin', 'directeur'],
+    badge: null,
+  },
+  {
     id: 'data-explorer',
     label: 'Données',
     icon: 'Database',
@@ -48,14 +56,6 @@ const NAV_ITEMS = [
     label: 'Comptabilité',
     icon: 'DollarSign',
     path: '/accounting',
-    roles: ['admin', 'directeur', 'comptable', 'equipement'],
-    badge: null,
-  },
-  {
-    id: 'reports',
-    label: 'Rapports',
-    icon: 'FileText',
-    path: '/reports',
     roles: ['admin', 'directeur', 'comptable', 'equipement'],
     badge: null,
   },
@@ -146,63 +146,25 @@ export default function Sidebar({ isCollapsed = false, isOpen = false, onToggleC
         {/* Logo / Brand */}
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <div 
-              style={{ 
-                width: '52px', 
-                height: '52px', 
-                borderRadius: '14px',
-                background: 'linear-gradient(135deg, #FF6B35 0%, #F7931E 50%, #FFC947 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                color: 'white',
-                fontSize: '20px',
-                fontFamily: 'var(--font-heading)',
-                boxShadow: '0 6px 16px rgba(255, 107, 53, 0.4)',
-                border: '3px solid rgba(255, 255, 255, 0.15)',
-                position: 'relative',
-                overflow: 'hidden',
-                transform: 'scale(1.1)'
-              }}
-            >
-              <div style={{
-                position: 'absolute',
-                top: '3px',
-                left: '3px',
-                right: '3px',
-                bottom: '3px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.08) 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{
-                  fontSize: '22px',
-                  fontWeight: '900',
-                  textShadow: '0 3px 6px rgba(0, 0, 0, 0.3)',
-                  letterSpacing: '2px',
-                  lineHeight: '1'
-                }}>
-                  RB
-                </span>
-              </div>
-            </div>
+            <img
+              src="/amp-icon.svg"
+              alt="AMP"
+              style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '6px', flexShrink: 0 }}
+            />
           </div>
           {!isCollapsed && (
-            <div className="sidebar-brand-text flex flex-col min-w-0">
+            <div className="sidebar-brand-text flex-1 flex flex-col" style={{ minWidth: 0 }}>
               <span
-                className="text-white font-heading font-700 text-sm leading-tight truncate"
-                style={{ fontFamily: 'var(--font-heading)', fontWeight: 700 }}
+                className="text-white font-heading text-sm leading-tight"
+                style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, letterSpacing: '0.5px' }}
               >
-                Amp Mines et Carrieres
+                African Mining
               </span>
               <span
-                className="text-white/70 text-xs leading-tight truncate"
-                style={{ fontFamily: 'var(--font-caption)' }}
+                className="text-xs leading-tight"
+                style={{ fontFamily: 'var(--font-caption)', color: '#CD4E17', fontWeight: 700 }}
               >
-                Exploration & Mines
+                Partenair SARL
               </span>
             </div>
           )}
@@ -210,7 +172,7 @@ export default function Sidebar({ isCollapsed = false, isOpen = false, onToggleC
           {/* Collapse toggle - desktop only */}
           <button
             onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded ml-auto flex-shrink-0 transition-all duration-[250ms] ease-out hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="hidden lg:flex items-center justify-center w-7 h-7 rounded flex-shrink-0 transition-all duration-[250ms] ease-out hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label={isCollapsed ? 'Développer la barre latérale' : 'Réduire la barre latérale'}
           >
             <Icon

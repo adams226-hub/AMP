@@ -2,7 +2,7 @@
 export const PRODUCTION_OBJECTIVES = {
   // Objectifs journaliers par type de production
   daily: {
-    default: 1500, // Objectif par défaut en tonnes
+    default: 1000, // Objectif par défaut en tonnes
     minerai: 800,  // Objectif spécifique pour le minerai
     forage: 400,   // Objectif spécifique pour le forage
     gravier_04: 300, // Objectif pour 0/4
@@ -11,7 +11,7 @@ export const PRODUCTION_OBJECTIVES = {
   
   // Objectifs hebdomadaires
   weekly: {
-    default: 10500, // 1500 * 7 jours
+    default: 10500, // 1000 * 7 jours
     minerai: 5600,
     forage: 2800,
     gravier_04: 2100,
@@ -20,7 +20,7 @@ export const PRODUCTION_OBJECTIVES = {
   
   // Objectifs mensuels
   monthly: {
-    default: 45000, // 1500 * 30 jours
+    default: 45000, // 1000 * 30 jours
     minerai: 24000,
     forage: 12000,
     gravier_04: 9000,
@@ -29,14 +29,14 @@ export const PRODUCTION_OBJECTIVES = {
   
   // Objectifs par shift
   shift: {
-    default: 750, // 1500 / 2 shifts
+    default: 750, // 1000 / 2 shifts
     nuit: 600,   // Objectif réduit pour le shift de nuit
     matin: 800,  // Objectif pour le shift du matin
   },
   
   // Objectifs par site
   site: {
-    'Site Principal': 1500,
+    'Site Principal': 1000,
     'Site Secondaire': 1200,
     'Site Annexe': 800,
   }
@@ -51,7 +51,7 @@ export const calculateObjective = (context = {}) => {
     dimensions = []
   } = context;
   
-  let baseObjective = PRODUCTION_OBJECTIVES[period]?.default || 1500;
+  let baseObjective = PRODUCTION_OBJECTIVES[period]?.default || 1000;
   
   // Ajuster selon le site
   if (PRODUCTION_OBJECTIVES.site[site]) {

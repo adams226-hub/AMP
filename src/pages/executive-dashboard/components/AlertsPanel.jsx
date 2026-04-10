@@ -47,9 +47,9 @@ function buildAlerts(data) {
     }
   }
 
-  // Production today below objective (default 1500t)
+  // Production today below objective (default 1000t)
   const todayProd = data.total_production || 0;
-  const objective = 1500;
+  const objective = 1000;
   if (todayProd > 0 && todayProd < objective * 0.8) {
     const pct = Math.round((todayProd / objective) * 100);
     alerts.push({

@@ -127,7 +127,7 @@ export default function ProductionFinal() {
   };
 
   return (
-    <AppLayout userRole="admin" userName="JD" userSite="RomBat Exploration & Mines">
+    <AppLayout userRole="admin" userName="JD" userSite="African Mining Partenair SARL">
       <div className="min-h-screen bg-gray-50 p-4">
         {/* Header */}
         <div className="mb-6">

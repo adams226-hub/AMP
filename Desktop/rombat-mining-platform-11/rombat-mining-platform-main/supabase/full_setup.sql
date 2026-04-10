@@ -284,12 +284,14 @@ CREATE TABLE IF NOT EXISTS fuel_transactions (
   id               UUID      PRIMARY KEY DEFAULT uuid_generate_v4(),
   transaction_date DATE      NOT NULL,
   site             VARCHAR(255),
-  equipment_id     UUID      NOT NULL REFERENCES equipment(id),
+  transaction_type fuel_transaction_type NOT NULL DEFAULT 'exit', -- entry=réception, exit=consommation
+  equipment_id     UUID      REFERENCES equipment(id),            -- NULL pour les entrées de stock
   fuel_type        fuel_type NOT NULL DEFAULT 'diesel',
   quantity         DECIMAL(10,2) NOT NULL CHECK (quantity > 0),
-  cost_per_liter   DECIMAL(8,3)  NOT NULL CHECK (cost_per_liter > 0),
+  cost_per_liter   DECIMAL(8,3)  CHECK (cost_per_liter IS NULL OR cost_per_liter > 0), -- NULL pour les sorties
   total_cost       DECIMAL(12,2) GENERATED ALWAYS AS (quantity * cost_per_liter) STORED,
   operator_id      UUID      REFERENCES auth.users(id),
+  operator_name    TEXT,
   supplier         VARCHAR(255),
   notes            TEXT,
   created_at       TIMESTAMP DEFAULT NOW(),
@@ -307,7 +309,7 @@ CREATE TABLE IF NOT EXISTS oil_transactions (
   id               UUID                PRIMARY KEY DEFAULT uuid_generate_v4(),
   transaction_date DATE                NOT NULL,
   site             VARCHAR(255),
-  equipment_id     UUID                NOT NULL REFERENCES equipment(id),
+  equipment_id     UUID                REFERENCES equipment(id),  -- NULL autorisé pour les entrées de stock
   transaction_type oil_transaction_type NOT NULL DEFAULT 'entry',
   quantity         DECIMAL(10,2)       NOT NULL CHECK (quantity > 0),
   operator_id      UUID                REFERENCES auth.users(id),

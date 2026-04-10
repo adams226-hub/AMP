@@ -46,28 +46,22 @@ export default function Login() {
       <div className="w-full max-w-md p-8">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div
-            className="mx-auto mb-4"
-            style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '20px',
-              background: 'rgba(255, 255, 255, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              color: 'white',
-              fontSize: '32px',
-              fontFamily: 'var(--font-heading)',
-              backdropFilter: 'blur(10px)',
-              border: '3px solid rgba(255, 255, 255, 0.3)'
-            }}
-          >
-            RB
+          <div className="mx-auto mb-4" style={{ width: '100px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img
+              src="/amp-icon.svg"
+              alt="AMP"
+              style={{
+                width: '100px',
+                height: '100px',
+                objectFit: 'contain',
+                borderRadius: '14px',
+                filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.25))',
+              }}
+            />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">RomBat Platform</h1>
-          <p className="text-white/80">Exploration & Mines</p>
+          <h1 className="text-3xl font-bold text-white mb-1" style={{ letterSpacing: '1px' }}>AMP</h1>
+          <p className="text-white font-semibold text-lg mb-0.5">African Mining Partenair</p>
+          <p className="text-white/80 text-sm font-medium">SARL</p>
         </div>
 
         {/* Formulaire de connexion */}
@@ -151,37 +145,10 @@ export default function Login() {
             </Button>
           </form>
 
-          {/* Comptes de référence */}
-          <div className="mt-6 p-4 rounded-lg" style={{ background: "var(--color-muted)" }}>
-            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-foreground)" }}>
-              Comptes disponibles :
-            </h3>
-            <div className="space-y-1 text-xs" style={{ color: "var(--color-muted-foreground)" }}>
-              <div className="flex justify-between">
-                <span>Admin:</span>
-                <span style={{ color: "var(--color-foreground)" }}>admin@rombat.com</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Directeur:</span>
-                <span style={{ color: "var(--color-foreground)" }}>directeur@rombat.com</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Superviseur:</span>
-                <span style={{ color: "var(--color-foreground)" }}>supervisor@rombat.com</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Comptable:</span>
-                <span style={{ color: "var(--color-foreground)" }}>comptable@rombat.com</span>
-              </div>
-            </div>
-            <p className="text-xs mt-2" style={{ color: "var(--color-muted-foreground)" }}>
-              Les comptes sont créés via le panneau Administration.
-            </p>
-          </div>
         </div>
 
         <div className="text-center mt-6">
-          <p className="text-white/80 text-sm">© 2026 RomBat Exploration & Mines</p>
+          <p className="text-white/80 text-sm">© 2026 African Mining Partenair SARL</p>
         </div>
       </div>
     </div>

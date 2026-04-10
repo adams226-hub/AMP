@@ -14,6 +14,13 @@ export default function AppLayout({ children, userRole = 'admin', userName = 'Je
   const { user, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     // Si pas d'utilisateur connecté, rediriger vers login
@@ -95,27 +102,30 @@ export default function AppLayout({ children, userRole = 'admin', userName = 'Je
       <main
         className="transition-all duration-[250ms] ease-out min-h-screen"
         style={{
-          marginLeft: `${sidebarWidth}px`,
+          marginLeft: isDesktop ? `${sidebarWidth}px` : 0,
           paddingTop: 0,
         }}
       >
         {/* Top bar */}
         <header
-          className="sticky top-0 z-[90] flex items-center justify-between px-6 border-b"
+          className="sticky top-0 z-[90] flex items-center justify-between border-b"
           style={{
             background: 'var(--color-card)',
             borderColor: 'var(--color-border)',
             height: '64px',
             boxShadow: 'var(--shadow-sm)',
+            paddingLeft: isDesktop ? '24px' : '64px',
+            paddingRight: '16px',
           }}
         >
-          {/* Left: breadcrumb (desktop) / spacer (mobile) */}
+          {/* Left: breadcrumb */}
           <div className="flex items-center">
             <div className="hidden lg:block">
               <NavigationBreadcrumb />
             </div>
-            {/* Mobile spacer for hamburger */}
-            <div className="lg:hidden w-12" />
+            <div className="lg:hidden text-sm font-semibold truncate max-w-[160px]" style={{ color: 'var(--color-foreground)' }}>
+              African Mining Partenair SARL
+            </div>
           </div>
 
           {/* Right: alerts + user info */}
@@ -162,7 +172,7 @@ export default function AppLayout({ children, userRole = 'admin', userName = 'Je
         </header>
 
         {/* Page content */}
-        <div className="p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Mobile breadcrumb */}
           <div className="lg:hidden mb-4">
             <NavigationBreadcrumb />

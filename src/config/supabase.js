@@ -45,23 +45,53 @@ export const miningService = {
 
   // Crée un compte auth Supabase + profil associé
   async createUser(email, password, profile) {
-    const client = supabaseAdmin || supabase;
+    // Essai 1 : API admin (fonctionne si service_role key est définie)
+    if (supabaseAdmin) {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: profile.full_name,
+          role: profile.role,
+          username: profile.username
+        }
+      });
+      if (authError) return { data: null, error: authError };
 
-    // Utiliser l'API Admin pour créer l'utilisateur sans confirmation email
-    const { data: authData, error: authError } = await client.auth.admin.createUser({
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert([{
+          id: authData.user.id,
+          username: profile.username,
+          full_name: profile.full_name,
+          role: profile.role,
+          department: profile.department || null,
+          is_active: true
+        }])
+        .select()
+        .maybeSingle();
+      return { data, error };
+    }
+
+    // Essai 2 : signUp standard (sans service_role key)
+    // Crée le compte puis insère le profil via trigger ou manuellement
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: profile.full_name,
-        role: profile.role,
-        username: profile.username
+      options: {
+        data: {
+          full_name: profile.full_name,
+          role: profile.role,
+          username: profile.username
+        }
       }
     });
 
     if (authError) return { data: null, error: authError };
+    if (!authData?.user) return { data: null, error: { message: 'Création du compte échouée' } };
 
-    // Upsert du profil
+    // Insérer/mettre à jour le profil
     const { data, error } = await supabase
       .from('profiles')
       .upsert([{
@@ -73,7 +103,7 @@ export const miningService = {
         is_active: true
       }])
       .select()
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -85,7 +115,7 @@ export const miningService = {
       .update(updates)
       .eq('id', userId)
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -136,7 +166,7 @@ export const miningService = {
       .from('equipment')
       .insert([equipment])
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -146,7 +176,7 @@ export const miningService = {
       .update(updates)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -177,7 +207,7 @@ export const miningService = {
       .from('maintenance')
       .insert([maintenance])
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -197,7 +227,7 @@ export const miningService = {
       .from('equipment_operation_logs')
       .insert([log])
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -205,8 +235,8 @@ export const miningService = {
   // PRODUCTION
   // ============================================================
 
-  async getProductionData() {
-    const { data, error } = await supabase
+  async getProductionData(startDate = null, endDate = null) {
+    let query = supabase
       .from('production')
       .select(`
         *,
@@ -215,8 +245,14 @@ export const miningService = {
           quantity
         )
       `)
-      .order('date', { ascending: false })
-      .limit(100);
+      .order('date', { ascending: false });
+
+    if (startDate && endDate) {
+      query = query.gte('date', startDate).lte('date', endDate);
+    }
+
+    query = query.limit(1000);
+    const { data, error } = await query;
     return { data, error };
   },
 
@@ -235,7 +271,7 @@ export const miningService = {
         created_by: user?.id || null
       }])
       .select()
-      .single();
+      .maybeSingle();
 
     if (productionError) return { data: null, error: productionError };
 
@@ -287,7 +323,7 @@ export const miningService = {
         created_by: user?.id || null
       }])
       .select()
-      .single();
+      .maybeSingle();
 
     if (exitError) return { data: null, error: exitError };
 
@@ -313,12 +349,18 @@ export const miningService = {
   // TRANSACTIONS FINANCIÈRES (Comptabilité)
   // ============================================================
 
-  async getFinancialTransactions() {
-    const { data, error } = await supabase
+  async getFinancialTransactions(startDate = null, endDate = null) {
+    let query = supabase
       .from('financial_transactions')
       .select('*')
-      .order('transaction_date', { ascending: false })
-      .limit(200);
+      .order('transaction_date', { ascending: false });
+
+    if (startDate && endDate) {
+      query = query.gte('transaction_date', startDate).lte('transaction_date', endDate);
+    }
+
+    query = query.limit(1000);
+    const { data, error } = await query;
     return { data, error };
   },
 
@@ -338,7 +380,7 @@ export const miningService = {
         notes: transaction.notes || null,
       }])
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -362,35 +404,67 @@ export const miningService = {
   // CARBURANT
   // ============================================================
 
-  async getFuelTransactions() {
-    const { data, error } = await supabase
+  async getFuelTransactions(startDate = null, endDate = null) {
+    let query = supabase
       .from('fuel_transactions')
       .select(`
         *,
         equipment:equipment_id (name, type)
       `)
-      .order('transaction_date', { ascending: false })
-      .limit(100);
+      .order('transaction_date', { ascending: false });
+
+    if (startDate && endDate) {
+      query = query.gte('transaction_date', startDate).lte('transaction_date', endDate);
+    }
+
+    query = query.limit(1000);
+    const { data, error } = await query;
     return { data, error };
   },
 
   async addFuelTransaction(entry) {
-    const { data, error } = await supabase
+    const isEntry = entry.type === 'entry';
+    const { error } = await supabase
       .from('fuel_transactions')
       .insert([{
         transaction_date: entry.date,
-        equipment_id: entry.equipment_id,
-        fuel_type: entry.fuel_type,
-        quantity: parseFloat(entry.quantity),
-        cost_per_liter: parseFloat(entry.cost_per_liter),
-        supplier: entry.supplier || null,
-        notes: entry.notes || null,
-        operator_name: entry.operator_name || null,
-      }])
+        transaction_type: entry.type,
+        equipment_id:     isEntry ? null : (entry.equipment_id || null),
+        fuel_type:        entry.fuel_type || 'gasoil',
+        quantity:         parseFloat(entry.quantity),
+        cost_per_liter:   isEntry && entry.cost_per_liter ? parseFloat(entry.cost_per_liter) : null,
+        supplier:         entry.supplier || null,
+        notes:            entry.notes || null,
+        operator_name:    entry.operator_name || null,
+      }]);
+    return { error };
+  },
 
-      .select()
-      .single();
-    return { data, error };
+  async updateFuelTransaction(id, entry) {
+    const isEntry = entry.type === 'entry';
+    const { error } = await supabase
+      .from('fuel_transactions')
+      .update({
+        transaction_date: entry.date,
+        transaction_type: entry.type,
+        equipment_id:     isEntry ? null : (entry.equipment_id || null),
+        fuel_type:        entry.fuel_type || 'gasoil',
+        quantity:         parseFloat(entry.quantity),
+        cost_per_liter:   isEntry && entry.cost_per_liter ? parseFloat(entry.cost_per_liter) : null,
+        supplier:         entry.supplier || null,
+        notes:            entry.notes || null,
+        operator_name:    entry.operator_name || null,
+      })
+      .eq('id', id);
+    return { error };
+  },
+
+  async deleteFuelTransaction(id) {
+    const { error } = await supabase
+      .from('fuel_transactions')
+      .delete()
+      .eq('id', id);
+    return { error };
   },
 
   async getEquipmentFuelSummary() {
@@ -411,25 +485,60 @@ export const miningService = {
   // ============================================================
 
   async getStockEntries() {
-    const { data, error } = await supabase
+    // Requête 1 : les entrées
+    const { data: entries, error } = await supabase
       .from('stock_entries')
-      .select(`
-        *,
-        stock_entry_details (dimension, quantity)
-      `)
-      .order('entry_date', { ascending: false });
-    return { data, error };
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) return { data: null, error };
+    if (!entries || entries.length === 0) return { data: [], error: null };
+
+    // Requête 2 : les détails — colonne FK réelle = entry_id
+    const ids = entries.map(e => e.id);
+    const { data: details } = await supabase
+      .from('stock_entry_details')
+      .select('entry_id, dimension, quantity')
+      .in('entry_id', ids);
+
+    const detailsByEntry = {};
+    (details || []).forEach(d => {
+      if (!detailsByEntry[d.entry_id]) detailsByEntry[d.entry_id] = [];
+      detailsByEntry[d.entry_id].push({ dimension: d.dimension, quantity: d.quantity });
+    });
+
+    return {
+      data: entries.map(e => ({ ...e, stock_entry_details: detailsByEntry[e.id] || [] })),
+      error: null,
+    };
   },
 
   async getStockExits() {
-    const { data, error } = await supabase
+    // Requête 1 : les sorties (ORDER BY date — colonne réelle dans add_stock_tables.sql)
+    const { data: exits, error } = await supabase
       .from('stock_exits')
-      .select(`
-        *,
-        stock_exit_details (dimension, quantity)
-      `)
-      .order('exit_date', { ascending: false });
-    return { data, error };
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) return { data: null, error };
+    if (!exits || exits.length === 0) return { data: [], error: null };
+
+    // Requête 2 : les détails — colonne FK réelle = exit_id (confirmé screenshot Supabase)
+    const ids = exits.map(e => e.id);
+    const { data: details } = await supabase
+      .from('stock_exit_details')
+      .select('exit_id, dimension, quantity')
+      .in('exit_id', ids);
+
+    // Assemblage
+    const detailsByExit = {};
+    (details || []).forEach(d => {
+      if (!detailsByExit[d.exit_id]) detailsByExit[d.exit_id] = [];
+      detailsByExit[d.exit_id].push({ dimension: d.dimension, quantity: d.quantity });
+    });
+
+    return {
+      data: exits.map(e => ({ ...e, stock_exit_details: detailsByExit[e.id] || [] })),
+      error: null,
+    };
   },
 
   async addStockEntry(entry) {
@@ -439,22 +548,21 @@ export const miningService = {
     const { data: entryResult, error: entryError } = await supabase
       .from('stock_entries')
       .insert([{
-        entry_date: entryData.date || entryData.entry_date,
+        date: entryData.date || entryData.entry_date,
         source: entryData.source,
-        notes: entryData.notes || null,
-        operator_id: user?.id || null
+        created_by: user?.id || null,
       }])
       .select()
-      .single();
+      .maybeSingle();
 
     if (entryError) return { data: null, error: entryError };
 
     const details = dimensions
       .filter(d => parseFloat(d.quantity) > 0)
       .map(d => ({
-        stock_entry_id: entryResult.id,
+        entry_id: entryResult.id,      // ✅ colonne réelle (même migration = add_stock_tables.sql)
         dimension: d.size || d.dimension,
-        quantity: parseFloat(d.quantity)
+        quantity: parseFloat(d.quantity),
       }));
 
     if (details.length > 0) {
@@ -471,27 +579,26 @@ export const miningService = {
     const { data: { user } } = await supabase.auth.getUser();
     const { dimensions, ...exitData } = exit;
 
+    // Colonnes minimales compatibles avec add_stock_tables.sql (date, destination, exit_type, created_by)
     const { data: exitResult, error: exitError } = await supabase
       .from('stock_exits')
       .insert([{
-        exit_date: exitData.date || exitData.exit_date,
+        date: exitData.date || exitData.exit_date,
         destination: exitData.destination,
         exit_type: exitData.exit_type || 'sale',
-        client_name: exitData.client_name || null,
-        notes: exitData.notes || null,
-        operator_id: user?.id || null
+        created_by: user?.id || null,
       }])
       .select()
-      .single();
+      .maybeSingle();
 
     if (exitError) return { data: null, error: exitError };
 
     const details = dimensions
       .filter(d => parseFloat(d.quantity) > 0)
       .map(d => ({
-        stock_exit_id: exitResult.id,
+        exit_id: exitResult.id,        // ✅ colonne réelle confirmée
         dimension: d.size || d.dimension,
-        quantity: parseFloat(d.quantity)
+        quantity: parseFloat(d.quantity),
       }));
 
     if (details.length > 0) {
@@ -515,9 +622,15 @@ export const miningService = {
     ]);
 
     const DIMENSIONS = [
-      'Minerai', 'Forage', '0/4', '0/5', '0/6',
+      'Nombre de voyages alimentés', 'Nombre de trous forés', '0/4', '0/5', '0/6',
       '5/15', '8/15', '15/25', '4/6', '10/14', '6/10', '0/31,5'
     ];
+
+    // Alias pour compatibilité avec les anciennes données
+    const DIMENSION_ALIASES = {
+      'Nombre de voyages alimentés': ['Nombre de voyages alimentés', 'Nombre de voyage alimenter', 'Minerai'],
+      'Nombre de trous forés': ['Nombre de trous forés', 'Nombre de trous fore', 'Forage'],
+    };
 
     const allEntries = [
       ...(prodDetailsResult.data || []),
@@ -528,12 +641,18 @@ export const miningService = {
       ...(stockExitsResult.data || [])
     ];
 
+    const matchesDimension = (row, dim) => {
+      const aliases = DIMENSION_ALIASES[dim];
+      if (aliases) return aliases.includes(row.dimension);
+      return row.dimension === dim;
+    };
+
     const stockSummary = DIMENSIONS.map(dim => {
       const totalEntries = allEntries
-        .filter(e => e.dimension === dim)
+        .filter(e => matchesDimension(e, dim))
         .reduce((sum, e) => sum + parseFloat(e.quantity || 0), 0);
       const totalExits = allExits
-        .filter(e => e.dimension === dim)
+        .filter(e => matchesDimension(e, dim))
         .reduce((sum, e) => sum + parseFloat(e.quantity || 0), 0);
       return {
         dimension: dim,
@@ -572,18 +691,22 @@ export const miningService = {
       equipmentResult,
       fuelMonthResult,
       fuelByEqResult,
+      oilByEqResult,
       financialMonthResult,
       financialSixMonthResult,
       sitesResult,
+      prodDetailsResult,
     ] = await Promise.all([
-      supabase.from('production').select('total, date').gte('date', startOfMonth),
-      supabase.from('production').select('total, date').gte('date', weekStartStr).lte('date', today),
+      supabase.from('production').select('id, total, date').gte('date', startOfMonth),
+      supabase.from('production').select('id, total, date').gte('date', weekStartStr).lte('date', today),
       supabase.from('equipment').select('id, status, name, serial_number'),
-      supabase.from('fuel_transactions').select('quantity, cost_per_liter, total_cost').gte('transaction_date', startOfMonth),
-      supabase.from('fuel_transactions').select('equipment_id, quantity, total_cost, equipment:equipment_id(name, serial_number)').gte('transaction_date', startOfMonth),
-      supabase.from('financial_transactions').select('amount, type').gte('transaction_date', startOfMonth),
+      supabase.from('fuel_transactions').select('quantity, cost_per_liter, total_cost, transaction_type').gte('transaction_date', startOfMonth),
+      supabase.from('fuel_transactions').select('equipment_id, quantity, total_cost, equipment:equipment_id(name, serial_number)').eq('transaction_type', 'exit').not('equipment_id', 'is', null).gte('transaction_date', weekStartStr).lte('transaction_date', today),
+      supabase.from('oil_transactions').select('equipment_id, quantity, transaction_type, equipment:equipment_id(name, serial_number)').eq('transaction_type', 'exit').not('equipment_id', 'is', null).gte('transaction_date', weekStartStr).lte('transaction_date', today),
+      supabase.from('financial_transactions').select('amount, type, category').gte('transaction_date', startOfMonth),
       supabase.from('financial_transactions').select('amount, type, transaction_date').gte('transaction_date', sixMonthsAgoStr),
       supabase.from('sites').select('id, name, location, is_active').order('name'),
+      supabase.from('production_details').select('dimension, quantity, production_id'),
     ]);
 
     const productionsMonth = productionMonthResult.data || [];
@@ -591,9 +714,11 @@ export const miningService = {
     const equipment = equipmentResult.data || [];
     const fuelMonth = fuelMonthResult.data || [];
     const fuelByEq = fuelByEqResult.data || [];
+    const oilByEq = oilByEqResult.data || [];
     const financialMonth = financialMonthResult.data || [];
     const financialSixMonth = financialSixMonthResult.data || [];
     const sites = sitesResult.data || [];
+    const detailRows = prodDetailsResult.data || [];
 
     // ── KPI aggregates ────────────────────────────────────────
     const totalProductionMonth = productionsMonth.reduce((s, p) => s + parseFloat(p.total || 0), 0);
@@ -606,15 +731,40 @@ export const miningService = {
     const profitability = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     const costPerTon = totalProductionMonth > 0 ? totalExpenses / totalProductionMonth : 0;
 
-    // ── Fuel by equipment (chart) ─────────────────────────────
+    // Voyages alimentés et Trous forés : uniquement les saisies d'aujourd'hui
+    const todayProductionIds = new Set(productionsMonth.filter(p => p.date === todayStr).map(p => p.id));
+    const todayDetailRows = detailRows.filter(d => todayProductionIds.has(d.production_id));
+
+    const totalVoyagesAlimentes = todayDetailRows
+      .filter(d => ['Nombre de voyages alimentés', 'Nombre de voyage alimenter', 'Minerai'].includes(d.dimension))
+      .reduce((s, d) => s + parseFloat(d.quantity || 0), 0);
+
+    const totalTrousFores = todayDetailRows
+      .filter(d => ['Nombre de trous forés', 'Nombre de trous fore', 'Forage'].includes(d.dimension))
+      .reduce((s, d) => s + parseFloat(d.quantity || 0), 0);
+
+    const totalVoyagesTrous = totalVoyagesAlimentes + totalTrousFores;
+
+    // ── Fuel by equipment (chart) — sorties semaine courante ──
     const fuelByEqMap = {};
     fuelByEq.forEach(f => {
-      const label = f.equipment?.serial_number || f.equipment?.name?.substring(0, 8) || 'N/A';
+      const label = f.equipment?.name || f.equipment?.serial_number;
+      if (!label) return;
       if (!fuelByEqMap[label]) fuelByEqMap[label] = { engin: label, consommation: 0, cout: 0 };
       fuelByEqMap[label].consommation += parseFloat(f.quantity || 0);
       fuelByEqMap[label].cout += parseFloat(f.total_cost || 0);
     });
-    const fuelChartData = Object.values(fuelByEqMap).sort((a, b) => b.consommation - a.consommation).slice(0, 6);
+    const fuelChartData = Object.values(fuelByEqMap).sort((a, b) => b.consommation - a.consommation);
+
+    // ── Oil by equipment (chart) — sorties semaine courante ──
+    const oilByEqMap = {};
+    oilByEq.forEach(o => {
+      const label = o.equipment?.name || o.equipment?.serial_number;
+      if (!label) return;
+      if (!oilByEqMap[label]) oilByEqMap[label] = { engin: label, consommation: 0 };
+      oilByEqMap[label].consommation += parseFloat(o.quantity || 0);
+    });
+    const oilChartData = Object.values(oilByEqMap).sort((a, b) => b.consommation - a.consommation);
 
     // ── Monthly profitability (6 months) ─────────────────────
     const monthMap = {};
@@ -640,7 +790,7 @@ export const miningService = {
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + i);
       const key = d.toISOString().split('T')[0];
-      weekDayMap[key] = { jour: DAY_LABELS[d.getDay()], production: 0, objectif: 1500 };
+      weekDayMap[key] = { jour: DAY_LABELS[d.getDay()], production: 0, objectif: 1000 };
     }
     productionsWeek.forEach(p => {
       if (weekDayMap[p.date]) weekDayMap[p.date].production += parseFloat(p.total || 0);
@@ -657,6 +807,16 @@ export const miningService = {
       weeklyMap[key].production += parseFloat(p.total || 0);
     });
     const productionMonthData = Object.values(weeklyMap).sort((a, b) => a.jour.localeCompare(b.jour));
+
+    // ── Expenses by category (donut chart) ───────────────────
+    const expenseByCatMap = {};
+    financialMonth.filter(f => f.type === 'expense').forEach(f => {
+      const cat = f.category || 'Autre';
+      expenseByCatMap[cat] = (expenseByCatMap[cat] || 0) + parseFloat(f.amount || 0);
+    });
+    const expensesByCategoryData = Object.entries(expenseByCatMap)
+      .map(([name, value]) => ({ name, value: Math.round(value) }))
+      .sort((a, b) => b.value - a.value);
 
     // ── Sites status ─────────────────────────────────────────
     const sitesData = sites.map(s => ({
@@ -680,11 +840,18 @@ export const miningService = {
         net_profit: netProfit,
         profitability,
         cost_per_ton: costPerTon,
+        total_voyages_alimentes: totalVoyagesAlimentes,
+        total_trous_fores: totalTrousFores,
+        total_voyages_trous: totalVoyagesTrous,
         // Charts
         fuel_chart_data: fuelChartData,
+        oil_chart_data: oilChartData,
+        week_start: weekStartStr,
+        week_end: today,
         monthly_profit_data: monthlyProfitData,
         production_week_data: productionWeekData,
         production_month_data: productionMonthData,
+        expenses_by_category: expensesByCategoryData,
         // Tables
         sites: sitesData,
       },
@@ -713,7 +880,7 @@ export const miningService = {
         onConflict: 'dimension,site,period_type'
       })
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -734,7 +901,7 @@ export const miningService = {
       .from('reports')
       .insert([{ ...report }])
       .select()
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 
@@ -746,18 +913,103 @@ export const miningService = {
   async getFuelChartData() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
     const { data, error } = await supabase
       .from('fuel_transactions')
       .select('quantity, equipment:equipment_id(name)')
-      .gte('transaction_date', startOfMonth);
+      .eq('transaction_type', 'exit')
+      .not('equipment_id', 'is', null)
+      .gte('transaction_date', startOfMonth)
+      .lte('transaction_date', today);
     if (error) return { data: [], error };
     const map = {};
     (data || []).forEach(f => {
-      const name = f.equipment?.name || 'Inconnu';
-      const short = name.length > 12 ? name.substring(0, 12) + '…' : name;
-      map[short] = (map[short] || 0) + parseFloat(f.quantity || 0);
+      const name = f.equipment?.name;
+      if (!name) return;
+      map[name] = (map[name] || 0) + parseFloat(f.quantity || 0);
     });
-    return { data: Object.entries(map).map(([name, c]) => ({ name, c: Math.round(c) })), error: null };
+    const sorted = Object.entries(map)
+      .map(([engin, consommation]) => ({ engin, consommation: Math.round(consommation) }))
+      .sort((a, b) => b.consommation - a.consommation);
+    return { data: sorted, error: null };
+  },
+
+  async getOilChartData() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('oil_transactions')
+      .select('quantity, equipment:equipment_id(name)')
+      .eq('transaction_type', 'exit')
+      .not('equipment_id', 'is', null)
+      .gte('transaction_date', startOfMonth)
+      .lte('transaction_date', today);
+    if (error) return { data: [], error };
+    const map = {};
+    (data || []).forEach(o => {
+      const name = o.equipment?.name;
+      if (!name) return;
+      map[name] = (map[name] || 0) + parseFloat(o.quantity || 0);
+    });
+    const sorted = Object.entries(map)
+      .map(([engin, consommation]) => ({ engin, consommation: Math.round(consommation) }))
+      .sort((a, b) => b.consommation - a.consommation);
+    return { data: sorted, error: null };
+  },
+
+  // ============================================================
+  // GESTION DE L'HUILE
+  // ============================================================
+
+  async getOilTransactions() {
+    const { data, error } = await supabase
+      .from('oil_transactions')
+      .select(`
+        *,
+        equipment:equipment_id (id, name, type)
+      `)
+      .order('transaction_date', { ascending: false })
+      .limit(200);
+    // Normalise les noms de colonnes pour le front-end
+    const normalized = (data || []).map(t => ({
+      ...t,
+      date: t.transaction_date,
+      type: t.transaction_type,
+    }));
+    return { data: normalized, error };
+  },
+
+  async addOilTransaction(transaction) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('oil_transactions')
+      .insert([{
+        transaction_date: transaction.date,
+        equipment_id: transaction.equipment_id || null,
+        transaction_type: transaction.type,
+        quantity: parseFloat(transaction.quantity),
+        oil_type: transaction.oil_type,
+        supplier: transaction.supplier || null,
+        operator_name: transaction.operator_name || null,
+        notes: transaction.notes || null,
+        operator_id: user?.id || null,
+      }])
+      .select('id, transaction_date, transaction_type, quantity, equipment_id')
+      .maybeSingle();
+    if (data) {
+      data.date = data.transaction_date;
+      data.type = data.transaction_type;
+    }
+    return { data, error };
+  },
+
+  async deleteOilTransaction(id) {
+    const { error } = await supabase
+      .from('oil_transactions')
+      .delete()
+      .eq('id', id);
+    return { error };
   },
 
   async getCostEvolutionData() {

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120">
+  <!-- Orange square with Africa dots (the "A" block) -->
+  <defs>
+    <pattern id="dots2" patternUnits="userSpaceOnUse" width="7" height="7">
+      <circle cx="3.5" cy="3.5" r="2.5" fill="#6B2808"/>
+    </pattern>
+    <clipPath id="africaClip2">
+      <path d="M22,10 L38,9 L47,14 L50,12 L56,18 L56,30 L52,36 L56,43 L58,52 L52,64 L44,76 L36,84 L28,76 L20,64 L16,52 L16,40 L12,30 L16,20 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Orange rectangle -->
+  <rect x="0" y="8" width="80" height="80" fill="#CD4E17" rx="5"/>
+  <!-- Africa dots -->
+  <rect x="0" y="8" width="80" height="80" fill="url(#dots2)" clip-path="url(#africaClip2)"/>
+
+  <!-- AMP text -->
+  <!-- A (implied by the orange block) -->
+  <text x="90" y="78" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#3D3D3D" letter-spacing="-2">MP</text>
+
+  <!-- African Mining Partenair SARL -->
+  <text x="2" y="108" font-family="Arial, sans-serif" font-size="16" fill="#555555" letter-spacing="1">African Mining Partenair </text>
+  <text x="234" y="108" font-family="Arial, sans-serif" font-size="16" fill="#CD4E17" font-weight="700">SARL</text>
+</svg>

@@ -27,5 +27,5 @@ export default defineConfig({
     }
   },
   // For Netlify deployment - ensure correct output directory
-  base: './'
+  base: '/'
 });
