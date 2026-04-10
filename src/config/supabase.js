@@ -1,12 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Clé publique anon — sécurité gérée par Row Level Security (RLS) côté Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://yxflncpuevwkvnhlavpy.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4ZmxuY3B1ZXZ3a3ZuaGxhdnB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTU3NDYsImV4cCI6MjA5MDE3MTc0Nn0.3j5ykIU-3lJ4tfEzXMfoXr1zeiDDTYt0l2mdcVYx3_M';
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Variables d\'environnement Supabase manquantes. Vérifiez votre fichier .env');
-}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
