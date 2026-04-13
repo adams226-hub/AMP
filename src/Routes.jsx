@@ -21,6 +21,8 @@ import AdminComplete from "./pages/administration/admin-complete";
 import AdminWorking from "./pages/administration/admin-working";
 import StockManagement from "./pages/stock-management";
 import DataExplorer from "./pages/data-explorer";
+import MaintenancePlanner from "./pages/maintenance-planner";
+import SpareParts from "./pages/spare-parts";
 
 // Composant pour la redirection automatique basée sur le rôle
 function RoleBasedRedirect() {
@@ -187,6 +189,18 @@ const AppRoutes = () => {
         </ProtectedRouteWrapper>
       } />
       
+      <Route path="/maintenance-planner" element={
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site', 'equipement']}>
+          <MaintenancePlanner />
+        </ProtectedRouteWrapper>
+      } />
+
+      <Route path="/spare-parts" element={
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site', 'equipement']}>
+          <SpareParts />
+        </ProtectedRouteWrapper>
+      } />
+
       {/* Route 404 */}
       <Route path="*" element={<NotFound />} />
     </RouterRoutes>

@@ -24,6 +24,8 @@ export default function ExecutiveDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [overdueMaintenances, setOverdueMaintenances] = useState([]);
+  const [criticalStockParts, setCriticalStockParts] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -116,6 +118,16 @@ export default function ExecutiveDashboard() {
           progressColor: "#8B5CF6",
         },
       ]);
+      // Charger alertes maintenance et stock
+      try {
+        const { data: alerts } = await miningService.getMaintenanceAlerts();
+        if (alerts) setOverdueMaintenances(alerts.filter(a => a.isOverdue));
+      } catch (_) {}
+      try {
+        const { data: stockAlerts } = await miningService.getCriticalStockAlerts();
+        if (stockAlerts) setCriticalStockParts(stockAlerts.map(s => ({ ...s, name: s.part?.name || s.spare_part_id })));
+      } catch (_) {}
+
     } catch (err) {
       console.error('Erreur:', err);
     } finally {
@@ -206,6 +218,54 @@ export default function ExecutiveDashboard() {
           </div>
         ))}
       </div>
+      {/* Alertes Maintenance & Stock critique */}
+      {(overdueMaintenances.length > 0 || criticalStockParts.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+          {overdueMaintenances.length > 0 && (
+            <div
+              className="rounded-xl border p-4 flex items-start gap-3 cursor-pointer hover:opacity-90 transition-opacity"
+              style={{ background: '#FFF5F5', borderColor: '#FC8181' }}
+              onClick={() => navigate('/maintenance-planner')}
+            >
+              <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#FED7D7' }}>
+                <Icon name="AlertTriangle" size={18} color="#E53E3E" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: '#C53030' }}>
+                  {overdueMaintenances.length} maintenance{overdueMaintenances.length > 1 ? 's' : ''} en retard
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#E53E3E' }}>
+                  {overdueMaintenances.slice(0, 2).map(m => m.task_name).join(', ')}
+                  {overdueMaintenances.length > 2 ? ` +${overdueMaintenances.length - 2} autres` : ''}
+                </p>
+              </div>
+              <Icon name="ChevronRight" size={16} color="#E53E3E" className="flex-shrink-0 mt-1" />
+            </div>
+          )}
+          {criticalStockParts.length > 0 && (
+            <div
+              className="rounded-xl border p-4 flex items-start gap-3 cursor-pointer hover:opacity-90 transition-opacity"
+              style={{ background: '#FFFAF0', borderColor: '#F6AD55' }}
+              onClick={() => navigate('/spare-parts')}
+            >
+              <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#FEEBC8' }}>
+                <Icon name="Package" size={18} color="#DD6B20" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: '#C05621' }}>
+                  {criticalStockParts.length} pièce{criticalStockParts.length > 1 ? 's' : ''} en stock critique
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#DD6B20' }}>
+                  {criticalStockParts.slice(0, 2).map(p => p.name).join(', ')}
+                  {criticalStockParts.length > 2 ? ` +${criticalStockParts.length - 2} autres` : ''}
+                </p>
+              </div>
+              <Icon name="ChevronRight" size={16} color="#DD6B20" className="flex-shrink-0 mt-1" />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
         {/* Production chart - 2 cols */}
@@ -277,12 +337,14 @@ export default function ExecutiveDashboard() {
             Navigation Rapide
           </h3>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3">
           {[
             { label: "Production", icon: "BarChart3", path: "/production-management", color: "var(--color-primary)" },
             { label: "Équipement", icon: "Wrench", path: "/equipment-management", color: "#3182CE" },
             { label: "Carburant", icon: "Fuel", path: "/fuel-management", color: "var(--color-warning)" },
             { label: "Comptabilité", icon: "Calculator", path: "/accounting", color: "#805AD5" },
+            { label: "Maintenance", icon: "ClipboardList", path: "/maintenance-planner", color: "#E53E3E" },
+            { label: "Pièces Rechange", icon: "Package", path: "/spare-parts", color: "#DD6B20" },
             { label: "Rapports", icon: "FileText", path: "/reports", color: "var(--color-accent)" },
             { label: "Administration", icon: "Settings", path: "/administration", color: "var(--color-secondary)" },
           ]?.map((item) => (

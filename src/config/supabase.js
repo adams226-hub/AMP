@@ -1032,4 +1032,218 @@ export const miningService = {
     });
     return { data: Object.values(months), error: null };
   },
+
+  // ============================================================
+  // PLANIFICATION DES MAINTENANCES PRÉVENTIVES
+  // ============================================================
+
+  async getMaintenanceSchedules() {
+    const { data, error } = await supabase
+      .from('maintenance_schedules')
+      .select('*, equipment:equipment_id(id, name, type)')
+      .order('next_due_date', { ascending: true });
+    return { data, error };
+  },
+
+  async addMaintenanceSchedule(entry) {
+    const payload = {
+      equipment_id:             entry.equipment_id,
+      task_name:                entry.task_name,
+      description:              entry.description || null,
+      frequency_days:           parseInt(entry.frequency_days),
+      frequency_hours:          entry.frequency_hours ? parseFloat(entry.frequency_hours) : null,
+      last_done_date:           entry.last_done_date || null,
+      priority:                 entry.priority || 'medium',
+      status:                   'active',
+      estimated_cost:           entry.estimated_cost ? parseFloat(entry.estimated_cost) : null,
+      estimated_duration_hours: entry.estimated_duration_hours ? parseFloat(entry.estimated_duration_hours) : null,
+    };
+    // next_due_date calculé par le trigger SQL
+    const { data, error } = await supabase.from('maintenance_schedules').insert([payload]).select().maybeSingle();
+    return { data, error };
+  },
+
+  async updateMaintenanceSchedule(id, entry) {
+    const payload = {
+      equipment_id:             entry.equipment_id,
+      task_name:                entry.task_name,
+      description:              entry.description || null,
+      frequency_days:           parseInt(entry.frequency_days),
+      frequency_hours:          entry.frequency_hours ? parseFloat(entry.frequency_hours) : null,
+      last_done_date:           entry.last_done_date || null,
+      priority:                 entry.priority || 'medium',
+      status:                   entry.status || 'active',
+      estimated_cost:           entry.estimated_cost ? parseFloat(entry.estimated_cost) : null,
+      estimated_duration_hours: entry.estimated_duration_hours ? parseFloat(entry.estimated_duration_hours) : null,
+    };
+    const { data, error } = await supabase.from('maintenance_schedules').update(payload).eq('id', id).select().maybeSingle();
+    return { data, error };
+  },
+
+  async deleteMaintenanceSchedule(id) {
+    const { error } = await supabase.from('maintenance_schedules').delete().eq('id', id);
+    return { error };
+  },
+
+  // Marquer une maintenance comme effectuée → met à jour last_done_date + crée historique
+  async markMaintenanceDone(scheduleId, entry) {
+    // 1. Créer l'entrée dans l'historique
+    const { data: hist, error: histError } = await supabase
+      .from('maintenance_history')
+      .insert([{
+        equipment_id:   entry.equipment_id,
+        schedule_id:    scheduleId,
+        task_name:      entry.task_name,
+        performed_date: entry.performed_date || new Date().toISOString().split('T')[0],
+        performed_by:   entry.performed_by || null,
+        cost:           entry.cost ? parseFloat(entry.cost) : null,
+        duration_hours: entry.duration_hours ? parseFloat(entry.duration_hours) : null,
+        notes:          entry.notes || null,
+        status:         'completed',
+      }])
+      .select().maybeSingle();
+    if (histError) return { error: histError };
+
+    // 2. Mettre à jour last_done_date (le trigger recalcule next_due_date)
+    const { error: schedError } = await supabase
+      .from('maintenance_schedules')
+      .update({ last_done_date: entry.performed_date || new Date().toISOString().split('T')[0] })
+      .eq('id', scheduleId);
+    return { data: hist, error: schedError };
+  },
+
+  async getMaintenanceHistory() {
+    const { data, error } = await supabase
+      .from('maintenance_history')
+      .select('*, equipment:equipment_id(id, name, type), schedule:schedule_id(task_name, frequency_days)')
+      .order('performed_date', { ascending: false })
+      .limit(500);
+    return { data, error };
+  },
+
+  // Alertes : maintenances en retard ou à venir dans 7 jours
+  async getMaintenanceAlerts() {
+    const today = new Date().toISOString().split('T')[0];
+    const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('maintenance_schedules')
+      .select('*, equipment:equipment_id(id, name, type)')
+      .eq('status', 'active')
+      .or(`next_due_date.lte.${in7},next_due_date.is.null`);
+    return { data: (data || []).map(s => ({
+      ...s,
+      isOverdue: s.next_due_date && s.next_due_date < today,
+      isDueSoon: s.next_due_date && s.next_due_date >= today && s.next_due_date <= in7,
+      daysUntilDue: s.next_due_date
+        ? Math.ceil((new Date(s.next_due_date) - new Date(today)) / 86400000)
+        : null,
+    })), error };
+  },
+
+  // ============================================================
+  // MAGASIN — PIÈCES DE RECHANGE
+  // ============================================================
+
+  async getSpareParts() {
+    const { data, error } = await supabase
+      .from('spare_parts')
+      .select('*, stock:spare_parts_stock(quantity, safety_stock, location)')
+      .order('name');
+    return { data: (data || []).map(p => ({
+      ...p,
+      quantity:     p.stock?.quantity ?? 0,
+      safety_stock: p.stock?.safety_stock ?? 0,
+      location:     p.stock?.location ?? '',
+      isCritical:   (p.stock?.quantity ?? 0) <= (p.stock?.safety_stock ?? 0),
+    })), error };
+  },
+
+  async addSparePart(entry) {
+    const { data: part, error } = await supabase
+      .from('spare_parts')
+      .insert([{
+        reference:       entry.reference,
+        name:            entry.name,
+        category:        entry.category || null,
+        unit:            entry.unit || 'unité',
+        description:     entry.description || null,
+        supplier:        entry.supplier || null,
+        unit_price:      entry.unit_price ? parseFloat(entry.unit_price) : null,
+        compatible_with: entry.compatible_with || [],
+      }])
+      .select().maybeSingle();
+    if (error) return { error };
+    // Créer la ligne stock
+    await supabase.from('spare_parts_stock').insert([{
+      spare_part_id: part.id,
+      quantity:      0,
+      safety_stock:  entry.safety_stock ? parseFloat(entry.safety_stock) : 0,
+      location:      entry.location || null,
+    }]);
+    return { data: part, error: null };
+  },
+
+  async updateSparePart(id, entry) {
+    const { error } = await supabase.from('spare_parts').update({
+      reference:       entry.reference,
+      name:            entry.name,
+      category:        entry.category || null,
+      unit:            entry.unit || 'unité',
+      description:     entry.description || null,
+      supplier:        entry.supplier || null,
+      unit_price:      entry.unit_price ? parseFloat(entry.unit_price) : null,
+    }).eq('id', id);
+    // Mettre à jour le stock de sécurité
+    await supabase.from('spare_parts_stock').update({
+      safety_stock: entry.safety_stock ? parseFloat(entry.safety_stock) : 0,
+      location:     entry.location || null,
+    }).eq('spare_part_id', id);
+    return { error };
+  },
+
+  async deleteSparePart(id) {
+    const { error } = await supabase.from('spare_parts').delete().eq('id', id);
+    return { error };
+  },
+
+  async getSparePartsMovements() {
+    const { data, error } = await supabase
+      .from('spare_parts_movements')
+      .select('*, part:spare_part_id(name, reference, unit), equipment:equipment_id(name)')
+      .order('movement_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(500);
+    return { data, error };
+  },
+
+  async addSparePartMovement(entry) {
+    const { error } = await supabase.from('spare_parts_movements').insert([{
+      spare_part_id:  entry.spare_part_id,
+      movement_type:  entry.movement_type,
+      quantity:       parseFloat(entry.quantity),
+      movement_date:  entry.movement_date || new Date().toISOString().split('T')[0],
+      reason:         entry.reason || null,
+      equipment_id:   entry.equipment_id || null,
+      unit_price:     entry.unit_price ? parseFloat(entry.unit_price) : null,
+      supplier:       entry.supplier || null,
+      notes:          entry.notes || null,
+    }]);
+    return { error };
+  },
+
+  // Pièces en dessous du stock de sécurité
+  async getCriticalStockAlerts() {
+    const { data, error } = await supabase
+      .from('spare_parts_stock')
+      .select('*, part:spare_part_id(name, reference, category, unit)')
+      .filter('quantity', 'lte', supabase.raw('safety_stock'));
+    // Fallback JS si la requête SQL échoue
+    if (error) {
+      const { data: all } = await supabase
+        .from('spare_parts_stock')
+        .select('*, part:spare_part_id(name, reference, category, unit)');
+      return { data: (all || []).filter(s => s.quantity <= s.safety_stock), error: null };
+    }
+    return { data, error };
+  },
 };

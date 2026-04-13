@@ -44,6 +44,22 @@ const NAV_ITEMS = [
     badge: null,
   },
   {
+    id: 'maintenance',
+    label: 'Maintenance',
+    icon: 'ClipboardList',
+    path: '/maintenance-planner',
+    roles: ['admin', 'directeur', 'chef_de_site', 'equipement'],
+    badge: null,
+  },
+  {
+    id: 'spare-parts',
+    label: 'Pièces de Rechange',
+    icon: 'Package',
+    path: '/spare-parts',
+    roles: ['admin', 'directeur', 'chef_de_site', 'equipement'],
+    badge: null,
+  },
+  {
     id: 'data-explorer',
     label: 'Données',
     icon: 'Database',
