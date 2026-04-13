@@ -291,10 +291,12 @@ export default function ExportPanel() {
         expByCat[cat] = (expByCat[cat] || 0) + parseFloat(t.amount || 0);
       });
 
-      // ── Carburant par engin ─────────────────────────────────────
+      // ── Carburant par engin (sorties uniquement, avec engin associé) ──
       const fuelByEngin = {};
       fuelData.forEach(f => {
-        const name = f.equipment?.name || 'Inconnu';
+        if (f.transaction_type !== 'exit') return; // ignorer les entrées en stock
+        const name = f.equipment?.name || null;
+        if (!name) return; // ignorer les sorties sans engin associé
         fuelByEngin[name] = (fuelByEngin[name] || 0) + parseFloat(f.quantity || 0);
       });
 

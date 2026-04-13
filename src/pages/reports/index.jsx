@@ -323,7 +323,8 @@ function buildFuelReport(report, d) {
 
   const byEq = {};
   exits.forEach(f => {
-    const name = f.equipment?.name || '—';
+    const name = f.equipment?.name || null;
+    if (!name) return; // ignorer les sorties sans engin associé
     if (!byEq[name]) byEq[name] = 0;
     byEq[name] += parseFloat(f.quantity || 0);
   });
