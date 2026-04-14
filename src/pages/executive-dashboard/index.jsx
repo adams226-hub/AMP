@@ -117,6 +117,21 @@ export default function ExecutiveDashboard() {
           progress: 100,
           progressColor: "#8B5CF6",
         },
+        {
+          id: 6,
+          title: "Stock Consommables",
+          value: Number(data.total_consumable_stock || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          unit: "t",
+          trend: (data.total_consumable_stock || 0) > 0 ? "up" : "stable",
+          trendValue: "Stock disponible",
+          icon: "Boxes",
+          iconColor: "#F97316",
+          bgColor: "rgba(249,115,22,0.12)",
+          subtitle: "Total consommables disponibles",
+          color: "#F97316",
+          progress: 100,
+          progressColor: "#F97316",
+        },
       ]);
       // Charger alertes maintenance et stock
       try {
@@ -147,7 +162,7 @@ export default function ExecutiveDashboard() {
   };
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SARL'}>
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SA'}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
@@ -198,7 +213,7 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
         {kpiData?.map((kpi) => (
           <div key={kpi?.id} className="col-span-1">
             <KPICard

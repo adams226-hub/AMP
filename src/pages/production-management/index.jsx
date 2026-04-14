@@ -17,6 +17,17 @@ export default function ProductionManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [showConsumableModal, setShowConsumableModal] = useState(false);
+  const [consumableData, setConsumableData] = useState([]);
+  const [consumableForm, setConsumableForm] = useState({
+    movement_date: new Date().toISOString().split('T')[0],
+    movement_type: 'entry',
+    category: '',
+    quantity: '',
+    unit: 'tonne',
+    notes: '',
+    operator_name: '',
+  });
 
   // Liste cohérente des dimensions
   const DIMENSIONS_LIST = [
@@ -91,10 +102,11 @@ export default function ProductionManagement() {
     try {
       setLoading(true);
 
-      const [productionResult, exitsResult, stockResult] = await Promise.all([
+      const [productionResult, exitsResult, stockResult, consumableResult] = await Promise.all([
         miningService.getProductionData(),
         miningService.getProductionExits(),
-        miningService.getStockSummary()
+        miningService.getStockSummary(),
+        miningService.getConsumableStock(),
       ]);
 
       if (productionResult.error) throw productionResult.error;
@@ -102,8 +114,8 @@ export default function ProductionManagement() {
 
       setProductionData(normalizeProductionData(productionResult.data || []));
       setExitData(normalizeExitData(exitsResult.data || []));
-      // Stock unifié : production + entrées manuelles - toutes les sorties
       setStockData(stockResult.data || []);
+      setConsumableData(consumableResult.data || []);
 
     } catch (err) {
       console.error('Erreur chargement production:', err);
@@ -235,12 +247,38 @@ export default function ProductionManagement() {
     }
   };
 
+  const handleAddConsumable = async () => {
+    if (!consumableForm.category || !consumableForm.quantity || parseFloat(consumableForm.quantity) <= 0) {
+      toastError('Catégorie et quantité sont obligatoires');
+      return;
+    }
+    // Vérifier stock suffisant pour les sorties
+    if (consumableForm.movement_type === 'exit') {
+      const cat = consumableData.find(c => c.category === consumableForm.category);
+      const available = cat ? cat.available : 0;
+      if (parseFloat(consumableForm.quantity) > available) {
+        toastError(`Stock insuffisant pour "${consumableForm.category}". Disponible : ${available.toFixed(2)} ${consumableForm.unit}`);
+        return;
+      }
+    }
+    const { error } = await miningService.addConsumableMovement(consumableForm);
+    if (error) { toastError(`Erreur : ${error.message}`); return; }
+    toastSuccess(consumableForm.movement_type === 'entry' ? 'Entrée consommable enregistrée' : 'Sortie consommable enregistrée');
+    setShowConsumableModal(false);
+    setConsumableForm({
+      movement_date: new Date().toISOString().split('T')[0],
+      movement_type: 'entry', category: '', quantity: '', unit: 'tonne', notes: '', operator_name: '',
+    });
+    await loadData();
+  };
+
   const totalProduction = productionData.reduce((sum, item) => sum + (parseFloat(item?.total) || 0), 0);
   const totalStock = stockData.reduce((sum, item) => sum + (parseFloat(item?.available) || 0), 0);
+  const totalConsumable = consumableData.reduce((sum, c) => sum + (parseFloat(c?.available) || 0), 0);
 
   if (loading) {
     return (
-      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
         <div className="flex items-center justify-center h-64">
           <p style={{ color: "var(--color-muted-foreground)" }}>Chargement...</p>
         </div>
@@ -249,7 +287,7 @@ export default function ProductionManagement() {
   }
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
@@ -278,6 +316,14 @@ export default function ProductionManagement() {
           </Button>
           <Button
             variant="outline"
+            iconName="Boxes"
+            iconPosition="left"
+            onClick={() => { setConsumableForm(f => ({...f, movement_date: new Date().toISOString().split('T')[0]})); setShowConsumableModal(true); }}
+          >
+            Consommables
+          </Button>
+          <Button
+            variant="outline"
             iconName="ArrowLeft"
             iconPosition="left"
             onClick={() => navigate("/")}
@@ -288,7 +334,7 @@ export default function ProductionManagement() {
       </div>
 
       {/* Cartes de synthèse */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="p-4 rounded-xl border" style={{ background: "var(--color-card)" }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(34,197,94,0.12)" }}>
@@ -324,6 +370,19 @@ export default function ProductionManagement() {
               <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Saisies Aujourd'hui</p>
               <p className="text-xl font-bold" style={{ color: "var(--color-foreground)" }}>
                 {productionData.filter(p => p.date === new Date().toISOString().split('T')[0]).length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 rounded-xl border cursor-pointer hover:shadow-md transition-shadow" style={{ background: "var(--color-card)", borderColor: totalConsumable === 0 ? 'var(--color-border)' : '#f97316' }} onClick={() => setShowConsumableModal(true)}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(249,115,22,0.12)" }}>
+              <Icon name="Boxes" size={20} color="#f97316" />
+            </div>
+            <div>
+              <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Stock Consommables</p>
+              <p className="text-xl font-bold" style={{ color: "#f97316" }}>
+                {totalConsumable.toFixed(2)} t
               </p>
             </div>
           </div>
@@ -366,12 +425,53 @@ export default function ProductionManagement() {
                     {item.available.toFixed(1)} {dimensionUnit(item.dimension)}
                   </td>
                   <td className="p-4">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium" 
-                      style={{ 
+                    <span className="px-2 py-1 rounded-full text-xs font-medium"
+                      style={{
                         background: item.available > 100 ? "rgba(34,197,94,0.12)" : item.available > 50 ? "rgba(214,158,46,0.12)" : "rgba(239,68,68,0.12)",
                         color: item.available > 100 ? "var(--color-success)" : item.available > 50 ? "var(--color-warning)" : "var(--color-error)"
                       }}>
                       {item.available > 100 ? 'Bon' : item.available > 50 ? 'Faible' : 'Critique'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {/* ── Séparateur + ligne de titre Consommables ── */}
+              {consumableData.length > 0 && (
+                <tr style={{ background: 'rgba(249,115,22,0.06)' }}>
+                  <td colSpan={5} className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <Icon name="Boxes" size={14} color="#f97316" />
+                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#f97316' }}>
+                        Stock Consommables
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {consumableData.map((c, i) => (
+                <tr key={`conso-${i}`} className="border-b" style={{ borderColor: "var(--color-border)", background: 'rgba(249,115,22,0.02)' }}>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium" style={{ color: "var(--color-foreground)" }}>{c.category}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}>Consommable</span>
+                    </div>
+                  </td>
+                  <td className="p-4" style={{ color: "var(--color-success)", fontWeight: 'bold' }}>
+                    +{c.entries.toFixed(2)} {c.unit}
+                  </td>
+                  <td className="p-4" style={{ color: "var(--color-error)", fontWeight: 'bold' }}>
+                    -{c.exits.toFixed(2)} {c.unit}
+                  </td>
+                  <td className="p-4" style={{ color: "#f97316", fontWeight: 'bold' }}>
+                    {c.available.toFixed(2)} {c.unit}
+                  </td>
+                  <td className="p-4">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium"
+                      style={{
+                        background: c.available > 0 ? 'rgba(249,115,22,0.12)' : 'rgba(239,68,68,0.12)',
+                        color: c.available > 0 ? '#f97316' : 'var(--color-error)',
+                      }}>
+                      {c.available > 0 ? 'En stock' : 'Épuisé'}
                     </span>
                   </td>
                 </tr>
@@ -763,6 +863,141 @@ export default function ProductionManagement() {
                 })}
               >
                 Enregistrer la Sortie
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Stock Consommable ── */}
+      {showConsumableModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" style={{ background: "var(--color-card)" }}>
+            <h3 className="text-lg font-semibold mb-1" style={{ color: "var(--color-foreground)" }}>
+              Stock Consommables
+            </h3>
+            <p className="text-sm mb-4" style={{ color: "var(--color-muted-foreground)" }}>
+              Enregistrez une entrée ou une sortie de consommable (explosifs, détonateurs, carburant chantier, etc.)
+            </p>
+
+            {/* Résumé stock actuel */}
+            {consumableData.length > 0 && (
+              <div className="mb-4 p-3 rounded-lg border" style={{ background: 'rgba(249,115,22,0.06)', borderColor: '#f97316' }}>
+                <p className="text-xs font-semibold mb-2" style={{ color: '#f97316' }}>Stock actuel par catégorie</p>
+                <div className="space-y-1">
+                  {consumableData.map((c, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span style={{ color: 'var(--color-foreground)' }}>{c.category}</span>
+                      <span className="font-bold" style={{ color: c.available > 0 ? '#f97316' : 'var(--color-error)' }}>
+                        {c.available.toFixed(2)} {c.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Type de mouvement */}
+              <div className="flex gap-2">
+                {[
+                  { value: 'entry', label: '+ Entrée', color: 'var(--color-success)' },
+                  { value: 'exit',  label: '- Sortie',  color: 'var(--color-error)' },
+                ].map(opt => (
+                  <button key={opt.value} onClick={() => setConsumableForm(f => ({...f, movement_type: opt.value}))}
+                    className="flex-1 py-2 rounded-lg border text-sm font-semibold transition-all"
+                    style={{
+                      background: consumableForm.movement_type === opt.value ? opt.color : 'var(--color-background)',
+                      color:      consumableForm.movement_type === opt.value ? '#fff' : 'var(--color-muted-foreground)',
+                      borderColor: consumableForm.movement_type === opt.value ? opt.color : 'var(--color-border)',
+                    }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Date *</label>
+                  <input type="date" value={consumableForm.movement_date}
+                    onChange={e => setConsumableForm(f => ({...f, movement_date: e.target.value}))}
+                    className="w-full p-2 rounded border"
+                    style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Unité</label>
+                  <select value={consumableForm.unit} onChange={e => setConsumableForm(f => ({...f, unit: e.target.value}))}
+                    className="w-full p-2 rounded border"
+                    style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }}>
+                    <option value="tonne">Tonne</option>
+                    <option value="kg">Kilogramme</option>
+                    <option value="litre">Litre</option>
+                    <option value="unité">Unité</option>
+                    <option value="boîte">Boîte</option>
+                    <option value="rouleau">Rouleau</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
+                  Catégorie / Nom du consommable *
+                </label>
+                <input type="text" value={consumableForm.category} list="conso-categories"
+                  onChange={e => setConsumableForm(f => ({...f, category: e.target.value}))}
+                  placeholder="ex: Explosifs, Détonateurs, Câbles de détonation..."
+                  className="w-full p-2 rounded border"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
+                <datalist id="conso-categories">
+                  <option value="Explosifs" />
+                  <option value="Détonateurs" />
+                  <option value="Câbles de détonation" />
+                  <option value="Mèches lentes" />
+                  <option value="Gilets de sécurité" />
+                  <option value="Casques" />
+                  <option value="Gants" />
+                  <option value="Lubrifiants" />
+                  {consumableData.map(c => <option key={c.category} value={c.category} />)}
+                </datalist>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
+                  Quantité * {consumableForm.movement_type === 'exit' && consumableForm.category && (() => {
+                    const cat = consumableData.find(c => c.category === consumableForm.category);
+                    return cat ? <span style={{ color: '#f97316' }}>(disponible : {cat.available.toFixed(2)} {cat.unit})</span> : null;
+                  })()}
+                </label>
+                <input type="number" min="0.01" step="0.01" value={consumableForm.quantity}
+                  onChange={e => setConsumableForm(f => ({...f, quantity: e.target.value}))}
+                  placeholder="0.00"
+                  className="w-full p-2 rounded border"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Opérateur</label>
+                <input type="text" value={consumableForm.operator_name}
+                  onChange={e => setConsumableForm(f => ({...f, operator_name: e.target.value}))}
+                  placeholder="Nom de l'opérateur"
+                  className="w-full p-2 rounded border"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Notes</label>
+                <textarea value={consumableForm.notes}
+                  onChange={e => setConsumableForm(f => ({...f, notes: e.target.value}))}
+                  rows={2} placeholder="Notes optionnelles..."
+                  className="w-full p-2 rounded border resize-none"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 justify-end">
+              <Button variant="outline" onClick={() => setShowConsumableModal(false)}>Annuler</Button>
+              <Button variant="default" onClick={handleAddConsumable}>
+                {consumableForm.movement_type === 'entry' ? 'Enregistrer l\'entrée' : 'Enregistrer la sortie'}
               </Button>
             </div>
           </div>

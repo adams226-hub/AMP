@@ -693,6 +693,7 @@ export const miningService = {
       financialSixMonthResult,
       sitesResult,
       prodDetailsResult,
+      consumableResult,
     ] = await Promise.all([
       supabase.from('production').select('id, total, date').gte('date', startOfMonth),
       supabase.from('production').select('id, total, date').gte('date', weekStartStr).lte('date', today),
@@ -704,6 +705,7 @@ export const miningService = {
       supabase.from('financial_transactions').select('amount, type, transaction_date').gte('transaction_date', sixMonthsAgoStr),
       supabase.from('sites').select('id, name, location, is_active').order('name'),
       supabase.from('production_details').select('dimension, quantity, production_id'),
+      supabase.from('consumable_movements').select('movement_type, quantity'),
     ]);
 
     const productionsMonth = productionMonthResult.data || [];
@@ -716,6 +718,12 @@ export const miningService = {
     const financialSixMonth = financialSixMonthResult.data || [];
     const sites = sitesResult.data || [];
     const detailRows = prodDetailsResult.data || [];
+    const consumableRows = consumableResult.data || [];
+
+    // ── Stock consommable disponible ──────────────────────────
+    const totalConsumableEntries = consumableRows.filter(c => c.movement_type === 'entry').reduce((s, c) => s + parseFloat(c.quantity || 0), 0);
+    const totalConsumableExits   = consumableRows.filter(c => c.movement_type === 'exit').reduce((s, c)  => s + parseFloat(c.quantity || 0), 0);
+    const totalConsumableStock   = Math.max(0, totalConsumableEntries - totalConsumableExits);
 
     // ── KPI aggregates ────────────────────────────────────────
     const totalProductionMonth = productionsMonth.reduce((s, p) => s + parseFloat(p.total || 0), 0);
@@ -840,6 +848,7 @@ export const miningService = {
         total_voyages_alimentes: totalVoyagesAlimentes,
         total_trous_fores: totalTrousFores,
         total_voyages_trous: totalVoyagesTrous,
+        total_consumable_stock: totalConsumableStock,
         // Charts
         fuel_chart_data: fuelChartData,
         oil_chart_data: oilChartData,
@@ -1229,6 +1238,60 @@ export const miningService = {
       notes:          entry.notes || null,
     }]);
     return { error };
+  },
+
+  // ============================================================
+  // STOCK CONSOMMABLES
+  // ============================================================
+
+  async getConsumableMovements() {
+    const { data, error } = await supabase
+      .from('consumable_movements')
+      .select('*')
+      .order('movement_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    return { data, error };
+  },
+
+  async addConsumableMovement(entry) {
+    const { data, error } = await supabase
+      .from('consumable_movements')
+      .insert([{
+        movement_date: entry.movement_date || new Date().toISOString().split('T')[0],
+        movement_type: entry.movement_type,
+        category:      entry.category,
+        quantity:      parseFloat(entry.quantity),
+        unit:          entry.unit || 'tonne',
+        notes:         entry.notes || null,
+        operator_name: entry.operator_name || null,
+      }])
+      .select().maybeSingle();
+    return { data, error };
+  },
+
+  // Stock net par catégorie : SUM(entries) - SUM(exits)
+  async getConsumableStock() {
+    const { data, error } = await supabase
+      .from('consumable_movements')
+      .select('movement_type, category, quantity, unit');
+    if (error) return { data: [], error };
+
+    const byCategory = {};
+    (data || []).forEach(m => {
+      if (!byCategory[m.category]) {
+        byCategory[m.category] = { category: m.category, unit: m.unit || 'tonne', entries: 0, exits: 0 };
+      }
+      if (m.movement_type === 'entry') byCategory[m.category].entries += parseFloat(m.quantity || 0);
+      if (m.movement_type === 'exit')  byCategory[m.category].exits  += parseFloat(m.quantity || 0);
+    });
+
+    const result = Object.values(byCategory).map(c => ({
+      ...c,
+      available: Math.max(0, c.entries - c.exits),
+    }));
+
+    return { data: result, error: null };
   },
 
   // Pièces en dessous du stock de sécurité
