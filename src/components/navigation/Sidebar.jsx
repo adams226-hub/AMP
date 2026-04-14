@@ -180,7 +180,7 @@ export default function Sidebar({ isCollapsed = false, isOpen = false, onToggleC
                 className="text-xs leading-tight"
                 style={{ fontFamily: 'var(--font-caption)', color: '#CD4E17', fontWeight: 700 }}
               >
-                Partenair SARL
+                Partenair SA
               </span>
             </div>
           )}

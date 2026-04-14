@@ -16,7 +16,7 @@ const CATEGORIES = [
 const UNITS = ['unité', 'litre', 'kg', 'mètre', 'boîte', 'paire', 'rouleau'];
 
 const EMPTY_PART = {
-  reference: '', name: '', category: '', unit: 'unité',
+  reference: '', name: '', category: '', category_custom: '', unit: 'unité',
   description: '', supplier: '', unit_price: '',
   safety_stock: '', location: '',
 };
@@ -76,8 +76,11 @@ export default function SpareParts() {
 
   const openNewPart = () => { setPartForm(EMPTY_PART); setEditPart(null); setShowPartModal(true); };
   const openEditPart = p => {
+    const isCustomCat = p.category && !CATEGORIES.includes(p.category);
     setPartForm({
-      reference: p.reference, name: p.name, category: p.category || '',
+      reference: p.reference, name: p.name,
+      category: isCustomCat ? 'Autre' : (p.category || ''),
+      category_custom: isCustomCat ? p.category : '',
       unit: p.unit || 'unité', description: p.description || '',
       supplier: p.supplier || '', unit_price: p.unit_price || '',
       safety_stock: p.safety_stock || '', location: p.location || '',
@@ -92,10 +95,12 @@ export default function SpareParts() {
 
   const handleSavePart = async () => {
     if (!partForm.reference || !partForm.name) { toastError('Référence et nom obligatoires'); return; }
+    const finalCategory = partForm.category === 'Autre' ? (partForm.category_custom || 'Autre') : partForm.category;
+    const payload = { ...partForm, category: finalCategory };
     setSaving(true);
     const fn = editPart
-      ? miningService.updateSparePart(editPart.id, partForm)
-      : miningService.addSparePart(partForm);
+      ? miningService.updateSparePart(editPart.id, payload)
+      : miningService.addSparePart(payload);
     const { error } = await fn;
     setSaving(false);
     if (error) { toastError(`Erreur: ${error.message}`); return; }
@@ -130,7 +135,7 @@ export default function SpareParts() {
   };
 
   if (loading) return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor:'var(--color-primary)' }} />
       </div>
@@ -138,7 +143,7 @@ export default function SpareParts() {
   );
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -383,10 +388,13 @@ export default function SpareParts() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Catégorie</label>
-                  <select value={partForm.category} onChange={e => setPartForm(f => ({...f, category: e.target.value}))} className="w-full p-2 rounded border" style={inp}>
+                  <select value={partForm.category} onChange={e => setPartForm(f => ({...f, category: e.target.value, category_custom: ''}))} className="w-full p-2 rounded border" style={inp}>
                     <option value="">Sélectionner...</option>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
+                  {partForm.category === 'Autre' && (
+                    <input type="text" value={partForm.category_custom} placeholder="Préciser la catégorie..." onChange={e => setPartForm(f => ({...f, category_custom: e.target.value}))} className="w-full p-2 rounded border mt-2" style={inp} />
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Fournisseur</label>
@@ -400,14 +408,14 @@ export default function SpareParts() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Prix unitaire (FCFA)</label>
-                  <input type="number" value={partForm.unit_price} placeholder="0" onChange={e => setPartForm(f => ({...f, unit_price: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                  <input type="text" inputMode="decimal" value={partForm.unit_price} placeholder="0" onChange={e => setPartForm(f => ({...f, unit_price: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>
                     Stock de sécurité
                     <span className="text-xs ml-1" style={{ color:'var(--color-muted-foreground)' }}>(minimum)</span>
                   </label>
-                  <input type="number" value={partForm.safety_stock} placeholder="0" onChange={e => setPartForm(f => ({...f, safety_stock: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                  <input type="text" inputMode="decimal" value={partForm.safety_stock} placeholder="0" onChange={e => setPartForm(f => ({...f, safety_stock: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                 </div>
               </div>
               <div>
@@ -453,12 +461,12 @@ export default function SpareParts() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Quantité *</label>
-                  <input type="number" step="0.01" min="0.01" value={moveForm.quantity} placeholder="0" onChange={e => setMoveForm(f => ({...f, quantity: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                  <input type="text" inputMode="decimal" value={moveForm.quantity} placeholder="0" onChange={e => setMoveForm(f => ({...f, quantity: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                 </div>
                 {moveForm.movement_type === 'entry' && (
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Prix unitaire (FCFA)</label>
-                    <input type="number" value={moveForm.unit_price} placeholder="0" onChange={e => setMoveForm(f => ({...f, unit_price: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                    <input type="text" inputMode="decimal" value={moveForm.unit_price} placeholder="0" onChange={e => setMoveForm(f => ({...f, unit_price: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                   </div>
                 )}
                 {moveForm.movement_type === 'exit' && (

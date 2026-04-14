@@ -89,7 +89,7 @@ function buildProductionReport(report, d) {
 
   return `${SEP}
   RAPPORT DE PRODUCTION
-  African Mining Partenair SARL
+  African Mining Partenair SA
 ${SEP}
 
   Nom      : ${report.name}
@@ -172,7 +172,7 @@ function buildFinancialReport(report, d) {
 
   return `${SEP}
   RAPPORT FINANCIER
-  African Mining Partenair SARL
+  African Mining Partenair SA
 ${SEP}
 
   Nom      : ${report.name}
@@ -215,7 +215,7 @@ function buildMaintenanceReport(report, d) {
 
   return `${SEP}
   RAPPORT DE MAINTENANCE
-  African Mining Partenair SARL
+  African Mining Partenair SA
 ${SEP}
 
   Nom      : ${report.name}
@@ -262,7 +262,7 @@ function buildSummaryReport(report, d) {
 
   return `${SEP}
   BILAN DE SYNTHÈSE
-  African Mining Partenair SARL
+  African Mining Partenair SA
 ${SEP}
 
   Nom      : ${report.name}
@@ -337,7 +337,7 @@ function buildFuelReport(report, d) {
 
   return `${SEP}
   RAPPORT CARBURANT
-  African Mining Partenair SARL
+  African Mining Partenair SA
 ${SEP}
 
   Nom      : ${report.name}
@@ -397,7 +397,7 @@ function buildOilReport(report, d) {
 
   return `${SEP}
   RAPPORT HUILE
-  African Mining Partenair SARL
+  African Mining Partenair SA
 ${SEP}
 
   Nom      : ${report.name}
@@ -593,7 +593,7 @@ export default function Reports() {
   const statLabel  = s => ({ completed:'Terminé', generating:'En cours', failed:'Échoué' }[s] || s);
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

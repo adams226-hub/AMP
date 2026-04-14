@@ -54,7 +54,7 @@ export default function ExportPanel() {
       });
 
       content += `\nTotal: ${totalProduction.toFixed(1)} tonnes\n`;
-      content += `\nGénéré par African Mining Partenair SARL Platform\n${new Date().toLocaleString()}`;
+      content += `\nGénéré par African Mining Partenair SA Platform\n${new Date().toLocaleString()}`;
 
       return content;
     } catch (error) {
@@ -93,7 +93,7 @@ export default function ExportPanel() {
       });
 
       content += `\nTotal: ${totalQty.toFixed(1)}L - Coût: ${totalCost.toFixed(0)}FCFA\n`;
-      content += `\nGénéré par African Mining Partenair SARL Platform\n${new Date().toLocaleString()}`;
+      content += `\nGénéré par African Mining Partenair SA Platform\n${new Date().toLocaleString()}`;
 
       return content;
     } catch (error) {
@@ -141,7 +141,7 @@ export default function ExportPanel() {
       content += "-".repeat(30) + "\n";
       content += `Bénéfice Net: ${profit.toFixed(2)}FCFA\n`;
       content += `Marge: ${totalIncome > 0 ? ((profit / totalIncome) * 100).toFixed(1) : '0.0'}%\n`;
-      content += `\nGénéré par African Mining Partenair SARL Platform\n${new Date().toLocaleString()}`;
+      content += `\nGénéré par African Mining Partenair SA Platform\n${new Date().toLocaleString()}`;
 
       return content;
     } catch (error) {
@@ -175,7 +175,7 @@ export default function ExportPanel() {
       const totalCount = equipmentData.length;
 
       content += `Équipements actifs: ${activeCount}/${totalCount}\n`;
-      content += `\nGénéré par African Mining Partenair SARL Platform\n${new Date().toLocaleString()}`;
+      content += `\nGénéré par African Mining Partenair SA Platform\n${new Date().toLocaleString()}`;
 
       return content;
     } catch (error) {
@@ -387,7 +387,7 @@ export default function ExportPanel() {
 </head>
 <body>
 
-  <h1>African Mining Partenair SARL</h1>
+  <h1>African Mining Partenair SA</h1>
   <p class="meta"><strong>P&#233;riode :</strong> ${periodLabel}</p>
   <p class="meta"><strong>G&#233;n&#233;r&#233; le :</strong> ${new Date().toLocaleDateString('fr-FR')}</p>
 
@@ -476,7 +476,7 @@ export default function ExportPanel() {
   <p class="meta">&#201;quipements actifs : <span class="badge-active">${activeCount} / ${equipmentData.length}</span></p>
 
   <div class="footer">
-    G&#233;n&#233;r&#233; par African Mining Partenair SARL Platform &mdash; ${new Date().toLocaleString('fr-FR')}
+    G&#233;n&#233;r&#233; par African Mining Partenair SA Platform &mdash; ${new Date().toLocaleString('fr-FR')}
   </div>
 
   <script>
@@ -641,7 +641,7 @@ export default function ExportPanel() {
           filename = `ROMBAT_Rapport_Equipement_${new Date().toISOString().split('T')[0]}.txt`;
           break;
         default:
-          content = "Rapport African Mining Partenair SARL";
+          content = "Rapport African Mining Partenair SA";
           filename = `ROMBAT_Rapport_${new Date().toISOString().split('T')[0]}.txt`;
       }
 

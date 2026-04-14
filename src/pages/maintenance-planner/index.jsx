@@ -157,7 +157,7 @@ export default function MaintenancePlanner() {
   };
 
   if (loading) return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor:'var(--color-primary)' }} />
       </div>
@@ -165,7 +165,7 @@ export default function MaintenancePlanner() {
   );
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -415,11 +415,11 @@ export default function MaintenancePlanner() {
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <input type="number" min="1" value={form.frequency_days} placeholder="Jours" onChange={e => setForm(f => ({...f, frequency_days: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                    <input type="text" inputMode="decimal" value={form.frequency_days} placeholder="Jours" onChange={e => setForm(f => ({...f, frequency_days: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                     <p className="text-xs mt-0.5" style={{ color:'var(--color-muted-foreground)' }}>Fréquence en jours</p>
                   </div>
                   <div className="flex-1">
-                    <input type="number" min="1" value={form.frequency_hours} placeholder="Optionnel" onChange={e => setForm(f => ({...f, frequency_hours: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                    <input type="text" inputMode="decimal" value={form.frequency_hours} placeholder="Optionnel" onChange={e => setForm(f => ({...f, frequency_hours: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                     <p className="text-xs mt-0.5" style={{ color:'var(--color-muted-foreground)' }}>Heures moteur (optionnel)</p>
                   </div>
                 </div>
@@ -439,11 +439,11 @@ export default function MaintenancePlanner() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Coût estimé (FCFA)</label>
-                  <input type="number" value={form.estimated_cost} placeholder="0" onChange={e => setForm(f => ({...f, estimated_cost: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                  <input type="text" inputMode="decimal" value={form.estimated_cost} placeholder="0" onChange={e => setForm(f => ({...f, estimated_cost: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Durée estimée (h)</label>
-                  <input type="number" step="0.5" value={form.estimated_duration_hours} placeholder="0" onChange={e => setForm(f => ({...f, estimated_duration_hours: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                  <input type="text" inputMode="decimal" value={form.estimated_duration_hours} placeholder="0" onChange={e => setForm(f => ({...f, estimated_duration_hours: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                 </div>
               </div>
             </div>
@@ -482,11 +482,11 @@ export default function MaintenancePlanner() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Coût réel (FCFA)</label>
-                  <input type="number" value={doneForm.cost} placeholder="0" onChange={e => setDoneForm(f => ({...f, cost: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                  <input type="text" inputMode="decimal" value={doneForm.cost} placeholder="0" onChange={e => setDoneForm(f => ({...f, cost: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Durée (heures)</label>
-                  <input type="number" step="0.5" value={doneForm.duration_hours} placeholder="0" onChange={e => setDoneForm(f => ({...f, duration_hours: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
+                  <input type="text" inputMode="decimal" value={doneForm.duration_hours} placeholder="0" onChange={e => setDoneForm(f => ({...f, duration_hours: e.target.value}))} className="w-full p-2 rounded border" style={inp} />
                 </div>
               </div>
               <div>
