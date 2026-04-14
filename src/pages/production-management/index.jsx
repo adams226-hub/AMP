@@ -916,59 +916,33 @@ export default function ProductionManagement() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Date *</label>
-                  <input type="date" value={consumableForm.movement_date}
-                    onChange={e => setConsumableForm(f => ({...f, movement_date: e.target.value}))}
-                    className="w-full p-2 rounded border"
-                    style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Unité</label>
-                  <select value={consumableForm.unit} onChange={e => setConsumableForm(f => ({...f, unit: e.target.value}))}
-                    className="w-full p-2 rounded border"
-                    style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }}>
-                    <option value="tonne">Tonne</option>
-                    <option value="kg">Kilogramme</option>
-                    <option value="litre">Litre</option>
-                    <option value="unité">Unité</option>
-                    <option value="boîte">Boîte</option>
-                    <option value="rouleau">Rouleau</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>Date *</label>
+                <input type="date" value={consumableForm.movement_date}
+                  onChange={e => setConsumableForm(f => ({...f, movement_date: e.target.value}))}
+                  className="w-full p-2 rounded border"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
                   Catégorie / Nom du consommable *
                 </label>
-                <input type="text" value={consumableForm.category} list="conso-categories"
+                <input type="text" value={consumableForm.category}
                   onChange={e => setConsumableForm(f => ({...f, category: e.target.value}))}
                   placeholder="ex: Explosifs, Détonateurs, Câbles de détonation..."
                   className="w-full p-2 rounded border"
                   style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
-                <datalist id="conso-categories">
-                  <option value="Explosifs" />
-                  <option value="Détonateurs" />
-                  <option value="Câbles de détonation" />
-                  <option value="Mèches lentes" />
-                  <option value="Gilets de sécurité" />
-                  <option value="Casques" />
-                  <option value="Gants" />
-                  <option value="Lubrifiants" />
-                  {consumableData.map(c => <option key={c.category} value={c.category} />)}
-                </datalist>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
-                  Quantité * {consumableForm.movement_type === 'exit' && consumableForm.category && (() => {
+                  Quantité (tonne) * {consumableForm.movement_type === 'exit' && consumableForm.category && (() => {
                     const cat = consumableData.find(c => c.category === consumableForm.category);
-                    return cat ? <span style={{ color: '#f97316' }}>(disponible : {cat.available.toFixed(2)} {cat.unit})</span> : null;
+                    return cat ? <span style={{ color: '#f97316' }}>(disponible : {cat.available.toFixed(2)} t)</span> : null;
                   })()}
                 </label>
-                <input type="number" min="0.01" step="0.01" value={consumableForm.quantity}
+                <input type="text" inputMode="decimal" value={consumableForm.quantity}
                   onChange={e => setConsumableForm(f => ({...f, quantity: e.target.value}))}
                   placeholder="0.00"
                   className="w-full p-2 rounded border"
