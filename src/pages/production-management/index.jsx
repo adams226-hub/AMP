@@ -257,7 +257,7 @@ export default function ProductionManagement() {
       const cat = consumableData.find(c => c.category === consumableForm.category);
       const available = cat ? cat.available : 0;
       if (parseFloat(consumableForm.quantity) > available) {
-        toastError(`Stock insuffisant pour "${consumableForm.category}". Disponible : ${available.toFixed(2)} ${consumableForm.unit}`);
+        toastError(`Stock insuffisant pour "${consumableForm.category}". Disponible : ${available} ${consumableForm.unit}`);
         return;
       }
     }
@@ -382,7 +382,7 @@ export default function ProductionManagement() {
             <div>
               <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>Stock Consommables</p>
               <p className="text-xl font-bold" style={{ color: "#f97316" }}>
-                {totalConsumable.toFixed(2)} t
+                {totalConsumable} t
               </p>
             </div>
           </div>
@@ -457,13 +457,13 @@ export default function ProductionManagement() {
                     </div>
                   </td>
                   <td className="p-4" style={{ color: "var(--color-success)", fontWeight: 'bold' }}>
-                    +{c.entries.toFixed(2)} {c.unit}
+                    +{c.entries} {c.unit}
                   </td>
                   <td className="p-4" style={{ color: "var(--color-error)", fontWeight: 'bold' }}>
-                    -{c.exits.toFixed(2)} {c.unit}
+                    -{c.exits} {c.unit}
                   </td>
                   <td className="p-4" style={{ color: "#f97316", fontWeight: 'bold' }}>
-                    {c.available.toFixed(2)} {c.unit}
+                    {c.available} {c.unit}
                   </td>
                   <td className="p-4">
                     <span className="px-2 py-1 rounded-full text-xs font-medium"
@@ -889,7 +889,7 @@ export default function ProductionManagement() {
                     <div key={i} className="flex justify-between text-sm">
                       <span style={{ color: 'var(--color-foreground)' }}>{c.category}</span>
                       <span className="font-bold" style={{ color: c.available > 0 ? '#f97316' : 'var(--color-error)' }}>
-                        {c.available.toFixed(2)} {c.unit}
+                        {c.available} {c.unit}
                       </span>
                     </div>
                   ))}
@@ -939,12 +939,12 @@ export default function ProductionManagement() {
                 <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
                   Quantité (tonne) * {consumableForm.movement_type === 'exit' && consumableForm.category && (() => {
                     const cat = consumableData.find(c => c.category === consumableForm.category);
-                    return cat ? <span style={{ color: '#f97316' }}>(disponible : {cat.available.toFixed(2)} t)</span> : null;
+                    return cat ? <span style={{ color: '#f97316' }}>(disponible : {cat.available} t)</span> : null;
                   })()}
                 </label>
                 <input type="text" inputMode="decimal" value={consumableForm.quantity}
                   onChange={e => setConsumableForm(f => ({...f, quantity: e.target.value}))}
-                  placeholder="0.00"
+                  placeholder="0"
                   className="w-full p-2 rounded border"
                   style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }} />
               </div>

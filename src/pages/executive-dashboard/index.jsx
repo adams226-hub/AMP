@@ -120,7 +120,7 @@ export default function ExecutiveDashboard() {
         {
           id: 6,
           title: "Stock Consommables",
-          value: Number(data.total_consumable_stock || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          value: Number(data.total_consumable_stock || 0).toLocaleString('fr-FR'),
           unit: "t",
           trend: (data.total_consumable_stock || 0) > 0 ? "up" : "stable",
           trendValue: "Stock disponible",
