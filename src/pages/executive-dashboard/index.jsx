@@ -352,7 +352,7 @@ export default function ExecutiveDashboard() {
             Navigation Rapide
           </h3>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {[
             { label: "Production", icon: "BarChart3", path: "/production-management", color: "var(--color-primary)" },
             { label: "Équipement", icon: "Wrench", path: "/equipment-management", color: "#3182CE" },
@@ -360,7 +360,6 @@ export default function ExecutiveDashboard() {
             { label: "Comptabilité", icon: "Calculator", path: "/accounting", color: "#805AD5" },
             { label: "Maintenance", icon: "ClipboardList", path: "/maintenance-planner", color: "#E53E3E" },
             { label: "Pièces Rechange", icon: "Package", path: "/spare-parts", color: "#DD6B20" },
-            { label: "Rapports", icon: "FileText", path: "/reports", color: "var(--color-accent)" },
             { label: "Administration", icon: "Settings", path: "/administration", color: "var(--color-secondary)" },
           ]?.map((item) => (
             <button
