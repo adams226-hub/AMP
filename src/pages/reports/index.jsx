@@ -17,29 +17,87 @@ const fmt  = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigi
 const fmtN = (n) => Number(n || 0).toLocaleString('fr-FR');
 const now  = () => new Date().toLocaleString('fr-FR');
 
-// Charge toutes les données réelles de Supabase pour la génération
-async function fetchAllData() {
-  const [prodRes, detailsRes, exitsRes, financialRes, maintenanceRes, eqRes, fuelRes, oilRes, stockEntriesRes, stockExitsRes] = await Promise.all([
-    supabase.from('production').select('*').order('date').limit(5000),
-    supabase.from('production_details').select('dimension, quantity').limit(5000),
-    supabase.from('production_exits').select('*').limit(5000),
-    supabase.from('financial_transactions').select('*').limit(5000),
-    supabase.from('maintenance').select('*, equipment:equipment_id(name)').order('start_date', { ascending: false }).limit(500),
+// Période → { startDate, endDate } (format "YYYY-MM-DD|YYYY-MM-DD")
+function parsePeriod(periodStr) {
+  if (periodStr && periodStr.includes('|')) {
+    const [s, e] = periodStr.split('|');
+    if (s && e && /^\d{4}-\d{2}-\d{2}$/.test(s) && /^\d{4}-\d{2}-\d{2}$/.test(e)) {
+      return { startDate: s, endDate: e };
+    }
+  }
+  return { startDate: null, endDate: null };
+}
+
+function formatPeriodDisplay(periodStr) {
+  const { startDate, endDate } = parsePeriod(periodStr);
+  if (startDate && endDate) {
+    const opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
+    const s = new Date(startDate + 'T12:00:00').toLocaleDateString('fr-FR', opts);
+    const e = new Date(endDate   + 'T12:00:00').toLocaleDateString('fr-FR', opts);
+    return startDate === endDate ? s : `${s} — ${e}`;
+  }
+  return periodStr || '';
+}
+
+function getQuickPeriod(type) {
+  const t = new Date();
+  const today = t.toISOString().split('T')[0];
+  switch (type) {
+    case 'today': return { startDate: today, endDate: today };
+    case 'week': {
+      const day = t.getDay();
+      const mon = new Date(t); mon.setDate(t.getDate() + (day === 0 ? -6 : 1 - day));
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      return { startDate: mon.toISOString().split('T')[0], endDate: sun.toISOString().split('T')[0] };
+    }
+    case 'month': {
+      const s = new Date(t.getFullYear(), t.getMonth(), 1).toISOString().split('T')[0];
+      const e = new Date(t.getFullYear(), t.getMonth() + 1, 0).toISOString().split('T')[0];
+      return { startDate: s, endDate: e };
+    }
+    case 'prev_month': {
+      const s = new Date(t.getFullYear(), t.getMonth() - 1, 1).toISOString().split('T')[0];
+      const e = new Date(t.getFullYear(), t.getMonth(), 0).toISOString().split('T')[0];
+      return { startDate: s, endDate: e };
+    }
+    default: return { startDate: today, endDate: today };
+  }
+}
+
+// Charge les données filtrées par période
+async function fetchAllData(startDate = null, endDate = null) {
+  const df = (q, col) => (startDate && endDate) ? q.gte(col, startDate).lte(col, endDate) : q;
+
+  // Production + details joinés (filtrage par date sur production)
+  let prodQ = supabase.from('production')
+    .select('*, production_details(dimension, quantity)')
+    .order('date');
+  prodQ = df(prodQ, 'date').limit(5000);
+
+  const [prodRes, exitsRes, financialRes, maintenanceRes, eqRes, fuelRes, oilRes, stockEntriesRes, stockExitsRes] = await Promise.all([
+    prodQ,
+    df(supabase.from('production_exits').select('*'), 'date').limit(5000),
+    df(supabase.from('financial_transactions').select('*'), 'transaction_date').limit(5000),
+    df(supabase.from('maintenance').select('*, equipment:equipment_id(name)').order('start_date', { ascending: false }), 'start_date').limit(500),
     supabase.from('equipment').select('*'),
-    supabase.from('fuel_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }).limit(5000),
-    supabase.from('oil_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }).limit(5000),
+    df(supabase.from('fuel_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }), 'transaction_date').limit(5000),
+    df(supabase.from('oil_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }), 'transaction_date').limit(5000),
     miningService.getStockEntries(),
     miningService.getStockExits(),
   ]);
+
+  const production = prodRes.data || [];
+  const details    = production.flatMap(p => p.production_details || []);
+
   return {
-    production:   prodRes.data    || [],
-    details:      detailsRes.data || [],
-    exits:        exitsRes.data   || [],
-    financial:    financialRes.data || [],
-    maintenance:  maintenanceRes.data || [],
-    equipment:    eqRes.data      || [],
-    fuel:         fuelRes.data    || [],
-    oil:          oilRes.data     || [],
+    production,
+    details,
+    exits:       exitsRes.data     || [],
+    financial:   financialRes.data || [],
+    maintenance: maintenanceRes.data || [],
+    equipment:   eqRes.data        || [],
+    fuel:        fuelRes.data      || [],
+    oil:         oilRes.data       || [],
     stockEntries: stockEntriesRes.data || [],
     stockExits:   stockExitsRes.data  || [],
   };
@@ -93,7 +151,7 @@ function buildProductionReport(report, d) {
 ${SEP}
 
   Nom      : ${report.name}
-  Période  : ${report.period}
+  Période  : ${report.periodDisplay || report.period}
   Généré le: ${now()}
 
 ${SUB}
@@ -176,7 +234,7 @@ function buildFinancialReport(report, d) {
 ${SEP}
 
   Nom      : ${report.name}
-  Période  : ${report.period}
+  Période  : ${report.periodDisplay || report.period}
   Généré le: ${now()}
 
 ${SUB}
@@ -219,7 +277,7 @@ function buildMaintenanceReport(report, d) {
 ${SEP}
 
   Nom      : ${report.name}
-  Période  : ${report.period}
+  Période  : ${report.periodDisplay || report.period}
   Généré le: ${now()}
 
 ${SUB}
@@ -266,7 +324,7 @@ function buildSummaryReport(report, d) {
 ${SEP}
 
   Nom      : ${report.name}
-  Période  : ${report.period}
+  Période  : ${report.periodDisplay || report.period}
   Généré le: ${now()}
 
 ${SUB}
@@ -341,7 +399,7 @@ function buildFuelReport(report, d) {
 ${SEP}
 
   Nom      : ${report.name}
-  Période  : ${report.period}
+  Période  : ${report.periodDisplay || report.period}
   Généré le: ${now()}
 
 ${SUB}
@@ -401,7 +459,7 @@ function buildOilReport(report, d) {
 ${SEP}
 
   Nom      : ${report.name}
-  Période  : ${report.period}
+  Période  : ${report.periodDisplay || report.period}
   Généré le: ${now()}
 
 ${SUB}
@@ -436,15 +494,18 @@ Généré par AMP Platform — ${now()}`;
 }
 
 async function generateReport(report) {
-  const d = await fetchAllData();
+  const { startDate, endDate } = parsePeriod(report.period);
+  const d = await fetchAllData(startDate, endDate);
+  // Injecte la période lisible dans le rapport pour l'affichage
+  const enriched = { ...report, periodDisplay: formatPeriodDisplay(report.period) || report.period };
   switch (report.type) {
-    case 'production':  return buildProductionReport(report, d);
-    case 'financial':   return buildFinancialReport(report, d);
-    case 'maintenance': return buildMaintenanceReport(report, d);
-    case 'fuel':        return buildFuelReport(report, d);
-    case 'oil':         return buildOilReport(report, d);
-    case 'summary':     return buildSummaryReport(report, d);
-    default:            return buildSummaryReport(report, d);
+    case 'production':  return buildProductionReport(enriched, d);
+    case 'financial':   return buildFinancialReport(enriched, d);
+    case 'maintenance': return buildMaintenanceReport(enriched, d);
+    case 'fuel':        return buildFuelReport(enriched, d);
+    case 'oil':         return buildOilReport(enriched, d);
+    case 'summary':     return buildSummaryReport(enriched, d);
+    default:            return buildSummaryReport(enriched, d);
   }
 }
 
@@ -459,9 +520,10 @@ export default function Reports() {
   const [costChartData, setCostChartData] = useState([]);
   const [stockDimData, setStockDimData]   = useState([]);
   const [recentExits, setRecentExits]   = useState([]);
-  const [generating, setGenerating]     = useState(null); // id du rapport en cours
+  const [generating, setGenerating]     = useState(null);
   const [showNewModal, setShowNewModal] = useState(false);
-  const [newReport, setNewReport]       = useState({ name: '', type: 'production', period: '', format: 'PDF' });
+  const todayISO = new Date().toISOString().split('T')[0];
+  const [newReport, setNewReport] = useState({ name: '', type: 'production', startDate: todayISO, endDate: todayISO, format: 'PDF' });
 
   useEffect(() => {
     loadReports();
@@ -552,15 +614,16 @@ export default function Reports() {
   }
 
   async function handleCreate() {
-    if (!newReport.name || !newReport.period) {
+    if (!newReport.name || !newReport.startDate || !newReport.endDate) {
       toastError('Remplissez le nom et la période');
       return;
     }
+    const period = `${newReport.startDate}|${newReport.endDate}`;
     try {
       const { data, error } = await miningService.createReport({
-        name: newReport.name,
-        type: newReport.type,
-        period: newReport.period,
+        name:   newReport.name,
+        type:   newReport.type,
+        period,
         format: newReport.format,
         status: 'completed',
         report_date: new Date().toISOString().split('T')[0],
@@ -568,7 +631,8 @@ export default function Reports() {
       if (error) throw error;
       toastSuccess('Rapport créé');
       setShowNewModal(false);
-      setNewReport({ name: '', type: 'production', period: '', format: 'PDF' });
+      const t = new Date().toISOString().split('T')[0];
+      setNewReport({ name: '', type: 'production', startDate: t, endDate: t, format: 'PDF' });
       await loadReports();
     } catch (err) {
       toastError(`Erreur: ${err.message}`);
@@ -658,7 +722,7 @@ export default function Reports() {
                   <td className="p-4">
                     <span className="px-2 py-1 rounded-full text-xs font-medium" style={{ background:`${typeColor(r.type)}18`, color:typeColor(r.type) }}>{typeLabel(r.type)}</span>
                   </td>
-                  <td className="p-4 text-sm" style={{ color:'var(--color-foreground)' }}>{r.period}</td>
+                  <td className="p-4 text-sm" style={{ color:'var(--color-foreground)' }}>{formatPeriodDisplay(r.period) || r.period}</td>
                   <td className="p-4 text-sm" style={{ color:'var(--color-muted-foreground)' }}>{r.report_date || r.created_at?.split('T')[0]}</td>
                   <td className="p-4">
                     <span className="px-2 py-1 rounded text-xs" style={{ background:'rgba(49,130,206,0.12)', color:'#3182CE' }}>{r.format}</span>
@@ -700,8 +764,8 @@ export default function Reports() {
 
       {/* Graphiques Carburant & Huile par Engin */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <FuelCostChart data={fuelChartData} periodLabel="Ce mois · sorties par engin" />
-        <OilConsumptionChart data={oilChartData} periodLabel="Ce mois · sorties par engin" />
+        <FuelCostChart data={fuelChartData} periodLabel="Cumul total · sorties par engin" />
+        <OilConsumptionChart data={oilChartData} periodLabel="Cumul total · sorties par engin" />
       </div>
 
       {/* Évolution des Coûts */}
@@ -841,7 +905,7 @@ export default function Reports() {
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Nom *</label>
                 <input type="text" value={newReport.name} onChange={e => setNewReport(r => ({...r, name:e.target.value}))}
-                  className="w-full p-2 rounded border" placeholder="ex: Rapport Mensuel Avril"
+                  className="w-full p-2 rounded border" placeholder="ex: Rapport Journalier 27 Avril"
                   style={{ borderColor:'var(--color-border)', background:'var(--color-background)', color:'var(--color-foreground)' }} />
               </div>
               <div>
@@ -857,12 +921,55 @@ export default function Reports() {
                   <option value="summary">Synthèse Globale</option>
                 </select>
               </div>
+
+              {/* Période — sélection rapide + dates */}
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Période *</label>
-                <input type="text" value={newReport.period} onChange={e => setNewReport(r => ({...r, period:e.target.value}))}
-                  className="w-full p-2 rounded border" placeholder="ex: Avril 2026"
-                  style={{ borderColor:'var(--color-border)', background:'var(--color-background)', color:'var(--color-foreground)' }} />
+                <label className="block text-sm font-medium mb-2" style={{ color:'var(--color-foreground)' }}>Période *</label>
+                <div className="flex gap-1.5 flex-wrap mb-3">
+                  {[
+                    { key:'today',      label:"Aujourd'hui" },
+                    { key:'week',       label:'Cette semaine' },
+                    { key:'month',      label:'Ce mois' },
+                    { key:'prev_month', label:'Mois précédent' },
+                  ].map(({ key, label }) => (
+                    <button key={key} type="button"
+                      onClick={() => { const p = getQuickPeriod(key); setNewReport(r => ({ ...r, startDate: p.startDate, endDate: p.endDate })); }}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold border transition-all"
+                      style={{
+                        borderColor: 'var(--color-border)',
+                        background:  (newReport.startDate === getQuickPeriod(key).startDate && newReport.endDate === getQuickPeriod(key).endDate)
+                          ? 'var(--color-primary)' : 'var(--color-muted)',
+                        color: (newReport.startDate === getQuickPeriod(key).startDate && newReport.endDate === getQuickPeriod(key).endDate)
+                          ? '#fff' : 'var(--color-muted-foreground)',
+                      }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color:'var(--color-muted-foreground)' }}>Date début</label>
+                    <input type="date" value={newReport.startDate}
+                      onChange={e => setNewReport(r => ({ ...r, startDate: e.target.value }))}
+                      className="w-full p-2 rounded border text-sm"
+                      style={{ borderColor:'var(--color-border)', background:'var(--color-background)', color:'var(--color-foreground)' }} />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color:'var(--color-muted-foreground)' }}>Date fin</label>
+                    <input type="date" value={newReport.endDate}
+                      min={newReport.startDate}
+                      onChange={e => setNewReport(r => ({ ...r, endDate: e.target.value }))}
+                      className="w-full p-2 rounded border text-sm"
+                      style={{ borderColor:'var(--color-border)', background:'var(--color-background)', color:'var(--color-foreground)' }} />
+                  </div>
+                </div>
+                {newReport.startDate && newReport.endDate && (
+                  <p className="text-xs mt-2 font-medium" style={{ color:'var(--color-primary)' }}>
+                    → {formatPeriodDisplay(`${newReport.startDate}|${newReport.endDate}`)}
+                  </p>
+                )}
               </div>
+
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color:'var(--color-foreground)' }}>Format</label>
                 <select value={newReport.format} onChange={e => setNewReport(r => ({...r, format:e.target.value}))}

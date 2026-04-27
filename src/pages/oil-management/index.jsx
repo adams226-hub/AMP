@@ -147,7 +147,7 @@ export default function OilManagement() {
 
   if (loading) {
     return (
-      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: 'var(--color-primary)' }} />
         </div>
@@ -157,7 +157,7 @@ export default function OilManagement() {
 
   if (error) {
     return (
-      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+      <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <Icon name="AlertCircle" size={40} color="var(--color-error)" />
           <p className="text-lg font-semibold" style={{ color: 'var(--color-error)' }}>{error}</p>
@@ -168,7 +168,7 @@ export default function OilManagement() {
   }
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
 
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

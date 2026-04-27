@@ -34,7 +34,7 @@ export default function AdminWorking() {
       id: '1',
       username: 'admin',
       email: 'admin@rombat.com',
-      full_name: 'African Mining Partenair SARL',
+      full_name: 'African Mining Partenair SA',
       role: 'admin',
       department: 'IT',
       is_active: true
@@ -176,7 +176,7 @@ export default function AdminWorking() {
   };
 
   return (
-    <AppLayout userRole="admin" userName="JD" userSite="African Mining Partenair SARL">
+    <AppLayout userRole="admin" userName="JD" userSite="African Mining Partenair SA">
       <div className="min-h-screen bg-gray-50 p-4">
         {/* Header */}
         <div className="mb-6">

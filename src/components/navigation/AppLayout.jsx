@@ -124,7 +124,7 @@ export default function AppLayout({ children, userRole = 'admin', userName = 'Je
               <NavigationBreadcrumb />
             </div>
             <div className="lg:hidden text-sm font-semibold truncate max-w-[160px]" style={{ color: 'var(--color-foreground)' }}>
-              African Mining Partenair SARL
+              African Mining Partenair SA
             </div>
           </div>
 

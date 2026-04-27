@@ -1,6 +1,6 @@
 -- ============================================================
 -- MIGRATION : Maintenance Préventive + Magasin Pièces de Rechange
--- African Mining Partenair SARL
+-- African Mining Partenair SA
 -- ============================================================
 
 -- ── 1. CATALOGUE DES PIÈCES DE RECHANGE ─────────────────────

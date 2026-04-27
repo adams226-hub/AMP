@@ -133,7 +133,7 @@ export default function DataExplorer() {
   };
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SARL">
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite="African Mining Partenair SA">
       <div className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>
           Exploration des Données

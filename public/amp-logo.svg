@@ -18,7 +18,7 @@
   <!-- A (implied by the orange block) -->
   <text x="90" y="78" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#3D3D3D" letter-spacing="-2">MP</text>
 
-  <!-- African Mining Partenair SARL -->
+  <!-- African Mining Partenair SA -->
   <text x="2" y="108" font-family="Arial, sans-serif" font-size="16" fill="#555555" letter-spacing="1">African Mining Partenair </text>
-  <text x="234" y="108" font-family="Arial, sans-serif" font-size="16" fill="#CD4E17" font-weight="700">SARL</text>
+  <text x="234" y="108" font-family="Arial, sans-serif" font-size="16" fill="#CD4E17" font-weight="700">SA</text>
 </svg>

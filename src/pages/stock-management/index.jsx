@@ -270,7 +270,7 @@ export default function StockManagement() {
 
   if (loading) {
     return (
-      <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SARL'}>
+      <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SA'}>
         <div className="flex items-center justify-center h-64">
           <p style={{ color: "var(--color-muted-foreground)" }}>Chargement...</p>
         </div>
@@ -279,7 +279,7 @@ export default function StockManagement() {
   }
 
   return (
-    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SARL'}>
+    <AppLayout userRole={user?.role} userName={user?.full_name} userSite={user?.department || 'African Mining Partenair SA'}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--color-foreground)" }}>

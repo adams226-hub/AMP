@@ -142,7 +142,7 @@ export default function ProductionSimple() {
   };
 
   return (
-    <AppLayout userRole="admin" userName="JD" userSite="African Mining Partenair SARL">
+    <AppLayout userRole="admin" userName="JD" userSite="African Mining Partenair SA">
       <div className="min-h-screen bg-gray-50 p-4">
         {/* Header */}
         <div className="mb-6">

@@ -61,7 +61,7 @@ export default function Login() {
           </div>
           <h1 className="text-3xl font-bold text-white mb-1" style={{ letterSpacing: '1px' }}>AMP</h1>
           <p className="text-white font-semibold text-lg mb-0.5">African Mining Partenair</p>
-          <p className="text-white/80 text-sm font-medium">SARL</p>
+          <p className="text-white/80 text-sm font-medium">SA</p>
         </div>
 
         {/* Formulaire de connexion */}
@@ -148,7 +148,7 @@ export default function Login() {
         </div>
 
         <div className="text-center mt-6">
-          <p className="text-white/80 text-sm">© 2026 African Mining Partenair SARL</p>
+          <p className="text-white/80 text-sm">© 2026 African Mining Partenair SA</p>
         </div>
       </div>
     </div>

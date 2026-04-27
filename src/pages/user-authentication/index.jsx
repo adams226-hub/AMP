@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "components/AppIcon";
 import LoginForm from "./components/LoginForm";
 import CreateAccountForm from "./components/CreateAccountForm";
 import ActivityLog from "./components/ActivityLog";
 import RoleBadge from "./components/RoleBadge";
+import { miningService, supabase } from "../../config/supabase";
 
 const TABS = [
   { id: "login", label: "Connexion", icon: "LogIn" },
@@ -16,6 +17,20 @@ export default function UserAuthentication() {
   const [activeTab, setActiveTab] = useState("login");
   const [loggedInUser, setLoggedInUser] = useState(null);
   const [showActivityLog, setShowActivityLog] = useState(false);
+  const [realStats, setRealStats] = useState({ total_users: '—', active_users: '—', sites: '—' });
+
+  useEffect(() => {
+    Promise.all([
+      miningService.getUserStats(),
+      supabase.from('sites').select('id', { count: 'exact', head: true }),
+    ]).then(([userRes, sitesRes]) => {
+      setRealStats({
+        total_users:  userRes.data?.total_users  ?? '—',
+        active_users: userRes.data?.active_users ?? '—',
+        sites:        sitesRes.count             ?? '—',
+      });
+    });
+  }, []);
 
   const handleLoginSuccess = (user) => {
     setLoggedInUser(user);
@@ -250,9 +265,9 @@ export default function UserAuthentication() {
               {/* Stats row */}
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: "Utilisateurs actifs", value: "12", icon: "Users", color: "var(--color-primary)" },
-                  { label: "Sites gérés", value: "4", icon: "MapPin", color: "#3182CE" },
-                  { label: "Sessions aujourd'hui", value: "28", icon: "Activity", color: "var(--color-accent)" },
+                  { label: "Total comptes", value: realStats.total_users, icon: "Users",  color: "var(--color-primary)" },
+                  { label: "Comptes actifs", value: realStats.active_users, icon: "UserCheck", color: "var(--color-success)" },
+                  { label: "Sites gérés",    value: realStats.sites,        icon: "MapPin", color: "#3182CE" },
                 ]?.map((stat) => (
                   <div
                     key={stat?.label}

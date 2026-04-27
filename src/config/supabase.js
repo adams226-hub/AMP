@@ -736,7 +736,7 @@ export const miningService = {
     const profitability = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     const costPerTon = totalProductionMonth > 0 ? totalExpenses / totalProductionMonth : 0;
 
-    // Voyages alimentés et Trous forés : uniquement les saisies d'aujourd'hui
+    // Voyages alimentés : uniquement les saisies d'aujourd'hui
     const todayProductionIds = new Set(productionsMonth.filter(p => p.date === todayStr).map(p => p.id));
     const todayDetailRows = detailRows.filter(d => todayProductionIds.has(d.production_id));
 
@@ -744,7 +744,8 @@ export const miningService = {
       .filter(d => ['Nombre de voyages alimentés', 'Nombre de voyage alimenter', 'Minerai'].includes(d.dimension))
       .reduce((s, d) => s + parseFloat(d.quantity || 0), 0);
 
-    const totalTrousFores = todayDetailRows
+    // Trous forés : cumul de toutes les saisies (historique complet)
+    const totalTrousFores = detailRows
       .filter(d => ['Nombre de trous forés', 'Nombre de trous fore', 'Forage'].includes(d.dimension))
       .reduce((s, d) => s + parseFloat(d.quantity || 0), 0);
 
@@ -917,16 +918,11 @@ export const miningService = {
   },
 
   async getFuelChartData() {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const today = now.toISOString().split('T')[0];
     const { data, error } = await supabase
       .from('fuel_transactions')
       .select('quantity, equipment:equipment_id(name)')
       .eq('transaction_type', 'exit')
-      .not('equipment_id', 'is', null)
-      .gte('transaction_date', startOfMonth)
-      .lte('transaction_date', today);
+      .not('equipment_id', 'is', null);
     if (error) return { data: [], error };
     const map = {};
     (data || []).forEach(f => {
@@ -941,16 +937,11 @@ export const miningService = {
   },
 
   async getOilChartData() {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const today = now.toISOString().split('T')[0];
     const { data, error } = await supabase
       .from('oil_transactions')
       .select('quantity, equipment:equipment_id(name)')
       .eq('transaction_type', 'exit')
-      .not('equipment_id', 'is', null)
-      .gte('transaction_date', startOfMonth)
-      .lte('transaction_date', today);
+      .not('equipment_id', 'is', null);
     if (error) return { data: [], error };
     const map = {};
     (data || []).forEach(o => {

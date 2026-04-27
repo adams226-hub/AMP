@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head -n 1307 /c/Users/iliad/Desktop/rombat-mining-platform-11/src/config/supabase.js)",
+      "Bash(echo \"};\")",
+      "Read(//tmp/**)",
+      "Bash(git add *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}

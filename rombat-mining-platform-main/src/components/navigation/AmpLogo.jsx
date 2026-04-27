@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Reproduction fidèle du logo AMP - African Mining Partenair SARL
+// Reproduction fidèle du logo AMP - African Mining Partenair SA
 // Carré orange avec carte Afrique en pointillés + texte AMP
 export default function AmpLogo({ collapsed = false }) {
   // Grille de points formant le continent africain (8 colonnes x 10 lignes)
@@ -89,7 +89,7 @@ export default function AmpLogo({ collapsed = false }) {
         African Mining Partenair
       </text>
 
-      {/* SARL en orange */}
+      {/* SA en orange */}
       <text
         x="75"
         y="68"
@@ -99,7 +99,7 @@ export default function AmpLogo({ collapsed = false }) {
         fill="#FFA040"
         letterSpacing="1"
       >
-        SARL
+        SA
       </text>
     </svg>
   );
