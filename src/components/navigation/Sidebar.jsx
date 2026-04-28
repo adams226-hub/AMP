@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../AppIcon';
 
+// ── Accès par rôle ────────────────────────────────────────────
+// admin        → tout
+// directeur    → tout sauf administration
+// supervisor   → équipement, maintenance, pièces de rechange
+// comptable    → comptabilité, données
+// chef_de_site → production
+// operator     → carburant, huile
+
 const NAV_ITEMS = [
   {
     id: 'dashboard',
@@ -16,7 +24,7 @@ const NAV_ITEMS = [
     label: 'Production',
     icon: 'BarChart3',
     path: '/production-management',
-    roles: ['admin', 'directeur', 'supervisor'],
+    roles: ['admin', 'directeur', 'chef_de_site'],
     badge: null,
   },
   {
@@ -24,7 +32,7 @@ const NAV_ITEMS = [
     label: 'Équipement',
     icon: 'Wrench',
     path: '/equipment-management',
-    roles: ['admin', 'directeur', 'chef_de_site', 'equipement'],
+    roles: ['admin', 'directeur', 'supervisor'],
     badge: null,
   },
   {
@@ -32,7 +40,7 @@ const NAV_ITEMS = [
     label: 'Carburant',
     icon: 'Fuel',
     path: '/fuel-management',
-    roles: ['admin', 'directeur'],
+    roles: ['admin', 'directeur', 'operator'],
     badge: null,
   },
   {
@@ -40,7 +48,7 @@ const NAV_ITEMS = [
     label: 'Huile',
     icon: 'Droplets',
     path: '/oil-management',
-    roles: ['admin', 'directeur'],
+    roles: ['admin', 'directeur', 'operator'],
     badge: null,
   },
   {
@@ -48,7 +56,7 @@ const NAV_ITEMS = [
     label: 'Maintenance',
     icon: 'ClipboardList',
     path: '/maintenance-planner',
-    roles: ['admin', 'directeur', 'chef_de_site', 'equipement'],
+    roles: ['admin', 'directeur', 'supervisor'],
     badge: null,
   },
   {
@@ -56,15 +64,7 @@ const NAV_ITEMS = [
     label: 'Pièces de Rechange',
     icon: 'Package',
     path: '/spare-parts',
-    roles: ['admin', 'directeur', 'chef_de_site', 'equipement'],
-    badge: null,
-  },
-  {
-    id: 'data-explorer',
-    label: 'Données',
-    icon: 'Database',
-    path: '/data-explorer',
-    roles: ['admin', 'directeur', 'comptable', 'equipement', 'supervisor'],
+    roles: ['admin', 'directeur', 'supervisor'],
     badge: null,
   },
   {
@@ -72,7 +72,15 @@ const NAV_ITEMS = [
     label: 'Comptabilité',
     icon: 'DollarSign',
     path: '/accounting',
-    roles: ['admin', 'directeur', 'comptable', 'equipement'],
+    roles: ['admin', 'directeur', 'comptable'],
+    badge: null,
+  },
+  {
+    id: 'data-explorer',
+    label: 'Données',
+    icon: 'Database',
+    path: '/data-explorer',
+    roles: ['admin', 'directeur', 'comptable'],
     badge: null,
   },
   {

@@ -24,42 +24,44 @@ import DataExplorer from "./pages/data-explorer";
 import MaintenancePlanner from "./pages/maintenance-planner";
 import SpareParts from "./pages/spare-parts";
 
-// Composant pour la redirection automatique basée sur le rôle
+// ── Rôles et accès ────────────────────────────────────────────
+// admin      → tout
+// directeur  → tout sauf Administration
+// supervisor → Équipement, Maintenance, Pièces de rechange
+// comptable  → Comptabilité, Données
+// chef_de_site → Production uniquement
+// operator   → Carburant, Huile
+
 function RoleBasedRedirect() {
   const { user, isAuthenticated, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
       </div>
     );
   }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  // Rediriger vers la page par défaut selon le rôle
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
   switch (user.role) {
     case 'admin':
     case 'directeur':
       return <Navigate to="/executive-dashboard" replace />;
-    case 'chef_de_site':
+    case 'supervisor':
       return <Navigate to="/equipment-management" replace />;
     case 'comptable':
-    case 'equipement':
       return <Navigate to="/accounting" replace />;
-
-    case 'supervisor':
-    case 'operator':
+    case 'chef_de_site':
       return <Navigate to="/production-management" replace />;
+    case 'operator':
+      return <Navigate to="/fuel-management" replace />;
     default:
       return <Navigate to="/executive-dashboard" replace />;
   }
 }
 
-// Wrapper pour les routes protégées
 function ProtectedRouteWrapper({ children, allowedRoles }) {
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
@@ -70,154 +72,151 @@ function ProtectedRouteWrapper({ children, allowedRoles }) {
 
 const AppRoutes = () => {
   const { isAuthenticated, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
       </div>
     );
   }
 
   return (
     <RouterRoutes>
-      {/* Page de connexion - accessible sans authentification */}
+      {/* Login — sans authentification */}
       <Route path="/login" element={
         isAuthenticated ? <Navigate to="/" replace /> : <Login />
       } />
-      
-      {/* Route racine - redirection selon le rôle */}
+
+      {/* Racine → redirection selon rôle */}
       <Route path="/" element={<RoleBasedRedirect />} />
-      
-      {/* Routes pour Admin, Directeur, Chef de Site, Comptable */}
+
+      {/* Tableau de bord exécutif — admin, directeur */}
       <Route path="/executive-dashboard" element={
         <ProtectedRouteWrapper allowedRoles={['admin', 'directeur']}>
-
           <ExecutiveDashboard />
         </ProtectedRouteWrapper>
       } />
-      
-      {/* Routes pour Production - accessible par tous les rôles connectés */}
+
+      {/* Production — admin, directeur, chef_de_site */}
       <Route path="/production-management" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor', 'operator']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site']}>
           <ProductionManagement />
         </ProtectedRouteWrapper>
       } />
-      
-      {/* Route Production Simple - garantie fonctionnelle */}
       <Route path="/production-simple" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor', 'operator']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site']}>
           <ProductionSimple />
         </ProtectedRouteWrapper>
       } />
-      
-      {/* Route Production Final - ULTRA simplifiée */}
       <Route path="/production-final" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor', 'operator']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site']}>
           <ProductionFinal />
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Gestion Utilisateurs — admin uniquement */}
       <Route path="/user-authentication" element={
         <ProtectedRouteWrapper allowedRoles={['admin']}>
           <UserAuthentication />
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Équipement — admin, directeur, supervisor */}
       <Route path="/equipment-management" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site', 'equipement']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor']}>
           <EquipmentManagement />
-
-
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Carburant — admin, directeur, operator */}
       <Route path="/fuel-management" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'operator']}>
           <FuelManagement />
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Huile — admin, directeur, operator */}
       <Route path="/oil-management" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site', 'equipement', 'supervisor', 'comptable']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'operator']}>
           <OilManagement />
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Comptabilité — admin, directeur, comptable */}
       <Route path="/accounting" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'comptable', 'equipement']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'comptable']}>
           <Accounting />
         </ProtectedRouteWrapper>
       } />
 
+      {/* Rapports — admin, directeur */}
       <Route path="/reports" element={
         <ProtectedRouteWrapper allowedRoles={['admin', 'directeur']}>
           <Reports />
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Administration — admin uniquement */}
       <Route path="/administration" element={
         <ProtectedRouteWrapper allowedRoles={['admin']}>
           <Administration />
         </ProtectedRouteWrapper>
       } />
-      
-      {/* Route Administration Complète - avec statistiques */}
       <Route path="/admin-complete" element={
         <ProtectedRouteWrapper allowedRoles={['admin']}>
           <AdminComplete />
         </ProtectedRouteWrapper>
       } />
-      
-      {/* Route Administration Working - version garantie */}
       <Route path="/admin-working" element={
         <ProtectedRouteWrapper allowedRoles={['admin']}>
           <AdminWorking />
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Données — admin, directeur, comptable */}
       <Route path="/data-explorer" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'comptable', 'equipement', 'supervisor']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'comptable']}>
           <DataExplorer />
         </ProtectedRouteWrapper>
       } />
 
+      {/* Stock — admin, directeur */}
       <Route path="/stock-management" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor', 'operator']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur']}>
           <StockManagement />
-
         </ProtectedRouteWrapper>
       } />
-      
+
+      {/* Maintenance — admin, directeur, supervisor */}
       <Route path="/maintenance-planner" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site', 'equipement']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor']}>
           <MaintenancePlanner />
         </ProtectedRouteWrapper>
       } />
 
+      {/* Pièces de rechange — admin, directeur, supervisor */}
       <Route path="/spare-parts" element={
-        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'chef_de_site', 'equipement']}>
+        <ProtectedRouteWrapper allowedRoles={['admin', 'directeur', 'supervisor']}>
           <SpareParts />
         </ProtectedRouteWrapper>
       } />
 
-      {/* Route 404 */}
+      {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </RouterRoutes>
   );
 };
 
-const Routes = () => {
-  return (
-    <BrowserRouter>
-      <ErrorBoundary>
-        <ScrollToTop />
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </ErrorBoundary>
-    </BrowserRouter>
-  );
-};
+const Routes = () => (
+  <BrowserRouter>
+    <ErrorBoundary>
+      <ScrollToTop />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ErrorBoundary>
+  </BrowserRouter>
+);
 
 export default Routes;
