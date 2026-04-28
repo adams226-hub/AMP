@@ -917,12 +917,14 @@ export const miningService = {
     return { error };
   },
 
-  async getFuelChartData() {
-    const { data, error } = await supabase
+  async getFuelChartData(startDate = null, endDate = null) {
+    let q = supabase
       .from('fuel_transactions')
-      .select('quantity, equipment:equipment_id(name)')
+      .select('quantity, transaction_date, equipment:equipment_id(name)')
       .eq('transaction_type', 'exit')
       .not('equipment_id', 'is', null);
+    if (startDate && endDate) q = q.gte('transaction_date', startDate).lte('transaction_date', endDate);
+    const { data, error } = await q;
     if (error) return { data: [], error };
     const map = {};
     (data || []).forEach(f => {
@@ -936,12 +938,14 @@ export const miningService = {
     return { data: sorted, error: null };
   },
 
-  async getOilChartData() {
-    const { data, error } = await supabase
+  async getOilChartData(startDate = null, endDate = null) {
+    let q = supabase
       .from('oil_transactions')
-      .select('quantity, equipment:equipment_id(name)')
+      .select('quantity, transaction_date, equipment:equipment_id(name)')
       .eq('transaction_type', 'exit')
       .not('equipment_id', 'is', null);
+    if (startDate && endDate) q = q.gte('transaction_date', startDate).lte('transaction_date', endDate);
+    const { data, error } = await q;
     if (error) return { data: [], error };
     const map = {};
     (data || []).forEach(o => {

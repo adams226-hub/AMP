@@ -524,10 +524,12 @@ export default function Reports() {
   const [showNewModal, setShowNewModal] = useState(false);
   const todayISO = new Date().toISOString().split('T')[0];
   const [newReport, setNewReport] = useState({ name: '', type: 'production', startDate: todayISO, endDate: todayISO, format: 'PDF' });
+  // Période des graphiques (indépendante des rapports)
+  const [chartPeriod, setChartPeriod] = useState(() => getQuickPeriod('today'));
 
   useEffect(() => {
     loadReports();
-    loadChartData();
+    loadChartData(chartPeriod.startDate, chartPeriod.endDate);
     loadStockData();
   }, []);
 
@@ -544,15 +546,28 @@ export default function Reports() {
     }
   }
 
-  async function loadChartData() {
+  async function loadChartData(startDate = null, endDate = null) {
     const [fuelRes, oilRes, costRes] = await Promise.all([
-      miningService.getFuelChartData(),
-      miningService.getOilChartData(),
+      miningService.getFuelChartData(startDate, endDate),
+      miningService.getOilChartData(startDate, endDate),
       miningService.getCostEvolutionData(),
     ]);
     setFuelChartData(fuelRes.data || []);
     setOilChartData(oilRes.data   || []);
     setCostChartData(costRes.data  || []);
+  }
+
+  function applyChartPeriod(key) {
+    const p = getQuickPeriod(key);
+    setChartPeriod(p);
+    loadChartData(p.startDate, p.endDate);
+  }
+
+  function applyCustomChartPeriod(startDate, endDate) {
+    if (!startDate || !endDate) return;
+    const p = { startDate, endDate };
+    setChartPeriod(p);
+    loadChartData(startDate, endDate);
   }
 
   async function loadStockData() {
@@ -762,10 +777,55 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Graphiques Carburant & Huile par Engin */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <FuelCostChart data={fuelChartData} periodLabel="Cumul total · sorties par engin" />
-        <OilConsumptionChart data={oilChartData} periodLabel="Cumul total · sorties par engin" />
+      {/* Sélecteur de période + Graphiques Carburant & Huile */}
+      <div className="rounded-xl border p-4 mt-6" style={{ background: 'var(--color-card)' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <h3 className="text-base font-semibold" style={{ color: 'var(--color-foreground)' }}>
+            Consommation Carburant & Huile par Engin
+          </h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Boutons rapides */}
+            {[
+              { key: 'today',      label: "Aujourd'hui" },
+              { key: 'week',       label: 'Cette semaine' },
+              { key: 'month',      label: 'Ce mois' },
+              { key: 'prev_month', label: 'Mois précédent' },
+            ].map(({ key, label }) => {
+              const p = getQuickPeriod(key);
+              const active = chartPeriod.startDate === p.startDate && chartPeriod.endDate === p.endDate;
+              return (
+                <button key={key} onClick={() => applyChartPeriod(key)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                  style={{
+                    background: active ? 'var(--color-primary)' : 'var(--color-muted)',
+                    color:      active ? '#fff' : 'var(--color-muted-foreground)',
+                    borderColor: active ? 'var(--color-primary)' : 'var(--color-border)',
+                  }}>
+                  {label}
+                </button>
+              );
+            })}
+            {/* Dates personnalisées */}
+            <div className="flex items-center gap-1">
+              <input type="date" value={chartPeriod.startDate}
+                onChange={e => applyCustomChartPeriod(e.target.value, chartPeriod.endDate)}
+                className="p-1.5 rounded border text-xs"
+                style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-foreground)' }} />
+              <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>→</span>
+              <input type="date" value={chartPeriod.endDate} min={chartPeriod.startDate}
+                onChange={e => applyCustomChartPeriod(chartPeriod.startDate, e.target.value)}
+                className="p-1.5 rounded border text-xs"
+                style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-foreground)' }} />
+            </div>
+          </div>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'var(--color-muted-foreground)' }}>
+          Période : {formatPeriodDisplay(`${chartPeriod.startDate}|${chartPeriod.endDate}`)}
+        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <FuelCostChart data={fuelChartData} periodLabel={formatPeriodDisplay(`${chartPeriod.startDate}|${chartPeriod.endDate}`)} />
+          <OilConsumptionChart data={oilChartData} periodLabel={formatPeriodDisplay(`${chartPeriod.startDate}|${chartPeriod.endDate}`)} />
+        </div>
       </div>
 
       {/* Évolution des Coûts */}
