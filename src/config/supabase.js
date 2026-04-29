@@ -50,59 +50,50 @@ export const miningService = {
       phone:      profile.phone      || null,
     };
 
-    // Voie 1 : API admin (service_role key disponible)
-    if (supabaseAdmin) {
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: meta,
-      });
-      if (authError) return { data: null, error: authError };
-
-      // Upsert via client admin pour ignorer les restrictions RLS
-      const { data, error } = await supabaseAdmin
-        .from('profiles')
-        .upsert([{
-          id:         authData.user.id,
-          username:   profile.username,
-          full_name:  profile.full_name,
-          role:       profile.role,
-          department: profile.department || null,
-          phone:      profile.phone      || null,
-          is_active:  true,
-        }])
-        .select()
-        .maybeSingle();
-      return { data: data || { id: authData.user.id }, error };
-    }
-
-    // Voie 2 : signUp standard (pas de service_role key)
-    // Les metadata sont stockées dans auth.users ET lues par le trigger handle_new_user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: meta },
-    });
-    if (authError) return { data: null, error: authError };
-    if (!authData?.user) return { data: null, error: { message: 'Création du compte échouée' } };
-
-    // Tenter l'upsert du profil (peut réussir grâce à la nouvelle politique RLS)
-    const { data, error } = await supabase
-      .from('profiles')
-      .upsert([{
-        id:         authData.user.id,
+    // Construit le payload profil — exclut phone si la colonne n'existe pas encore
+    const buildProfile = (id, withPhone = true) => {
+      const p = {
+        id,
         username:   profile.username,
         full_name:  profile.full_name,
         role:       profile.role,
         department: profile.department || null,
-        phone:      profile.phone      || null,
         is_active:  true,
-      }])
-      .select()
-      .maybeSingle();
+      };
+      if (withPhone && profile.phone) p.phone = profile.phone;
+      return p;
+    };
 
-    // Si RLS bloque encore, le trigger a déjà créé le profil → on retourne succès
+    // Upsert avec fallback si la colonne phone est absente
+    const upsertProfile = async (client, id) => {
+      const { data, error } = await client.from('profiles').upsert([buildProfile(id, true)]).select().maybeSingle();
+      if (error && error.message?.includes('phone')) {
+        // Colonne phone pas encore créée : réessayer sans phone
+        const { data: d2, error: e2 } = await client.from('profiles').upsert([buildProfile(id, false)]).select().maybeSingle();
+        return { data: d2, error: e2 };
+      }
+      return { data, error };
+    };
+
+    // Voie 1 : API admin (service_role key disponible)
+    if (supabaseAdmin) {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email, password, email_confirm: true, user_metadata: meta,
+      });
+      if (authError) return { data: null, error: authError };
+      const { data, error } = await upsertProfile(supabaseAdmin, authData.user.id);
+      return { data: data || { id: authData.user.id }, error };
+    }
+
+    // Voie 2 : signUp standard (les metadata sont lues par le trigger handle_new_user)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email, password, options: { data: meta },
+    });
+    if (authError) return { data: null, error: authError };
+    if (!authData?.user) return { data: null, error: { message: 'Création du compte échouée' } };
+
+    const { data, error } = await upsertProfile(supabase, authData.user.id);
+    // Si RLS bloque, le trigger a déjà créé le profil → succès
     return { data: data || { id: authData.user.id }, error: error?.code === '42501' ? null : error };
   },
 
@@ -114,6 +105,17 @@ export const miningService = {
       .eq('id', userId)
       .select()
       .maybeSingle();
+    // Fallback si phone n'existe pas encore : réessayer sans phone
+    if (error && error.message?.includes('phone')) {
+      const { phone: _, ...updatesWithoutPhone } = updates;
+      const { data: d2, error: e2 } = await supabase
+        .from('profiles')
+        .update(updatesWithoutPhone)
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
+      return { data: d2, error: e2 };
+    }
     return { data, error };
   },
 
