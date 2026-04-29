@@ -31,22 +31,16 @@ export default function Administration() {
   
   // États des formulaires
   const [newUser, setNewUser] = useState({
-    username: '',
-    email: '',
-    password: '',
-    full_name: '',
-    role: 'operator',
-    department: ''
+    username: '', email: '', password: '',
+    full_name: '', role: 'operator', department: '', phone: ''
   });
-
   const [editUser, setEditUser] = useState({
-    id: null,
-    username: '',
-    email: '',
-    full_name: '',
-    role: '',
-    department: ''
+    id: null, username: '', email: '',
+    full_name: '', role: '', department: '', phone: ''
   });
+  // Afficher les identifiants après création (le mot de passe n'est visible qu'une fois)
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [showCreatedPwd, setShowCreatedPwd] = useState(false);
 
   // Paramètres système
   const [systemSettings, setSystemSettings] = useState({
@@ -113,26 +107,30 @@ export default function Administration() {
         newUser.email,
         newUser.password,
         {
-          username: newUser.username,
-          full_name: newUser.full_name,
-          role: newUser.role,
-          department: newUser.department
+          username:   newUser.username,
+          full_name:  newUser.full_name,
+          role:       newUser.role,
+          department: newUser.department,
+          phone:      newUser.phone,
         }
       );
 
       if (result.error) throw result.error;
 
+      // Sauvegarder les identifiants pour les afficher (mot de passe visible une seule fois)
+      setCreatedCredentials({
+        full_name: newUser.full_name,
+        username:  newUser.username,
+        email:     newUser.email,
+        password:  newUser.password,
+        role:      newUser.role,
+        phone:     newUser.phone,
+      });
+      setShowCreatedPwd(false);
+
       await Promise.all([loadUsers(), loadStats()]);
       setShowAddModal(false);
-      setNewUser({
-        username: '',
-        email: '',
-        password: '',
-        full_name: '',
-        role: 'operator',
-        department: ''
-      });
-      alert('Utilisateur créé avec succès! Un email de confirmation a été envoyé.');
+      setNewUser({ username: '', email: '', password: '', full_name: '', role: 'operator', department: '', phone: '' });
     } catch (error) {
       console.error('Erreur lors de l\'ajout de l\'utilisateur:', error);
       alert('Erreur lors de l\'ajout de l\'utilisateur: ' + (error.message || 'Erreur inconnue'));
@@ -144,12 +142,13 @@ export default function Administration() {
   const handleEditUser = (user) => {
     setSelectedUser(user);
     setEditUser({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      full_name: user.full_name,
-      role: user.role,
-      department: user.department
+      id:         user.id,
+      username:   user.username,
+      email:      user.email,
+      full_name:  user.full_name,
+      role:       user.role,
+      department: user.department,
+      phone:      user.phone || '',
     });
     setShowEditModal(true);
   };
@@ -162,10 +161,11 @@ export default function Administration() {
       }
 
       const result = await miningService.updateUser(editUser.id, {
-        username: editUser.username,
-        full_name: editUser.full_name,
-        role: editUser.role,
-        department: editUser.department
+        username:   editUser.username,
+        full_name:  editUser.full_name,
+        role:       editUser.role,
+        department: editUser.department,
+        phone:      editUser.phone || null,
       });
 
       if (result.error) throw result.error;
@@ -387,9 +387,9 @@ export default function Administration() {
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Utilisateur</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Email</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Rôle</th>
+                    <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Téléphone</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Département</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Statut</th>
-                    <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Dernière Connexion</th>
                     <th className="text-left p-4 text-sm font-medium" style={{ color: "var(--color-muted-foreground)" }}>Actions</th>
                   </tr>
                 </thead>
@@ -426,17 +426,19 @@ export default function Administration() {
                             {getRoleText(user.role)}
                           </span>
                         </td>
-                        <td className="p-4" style={{ color: "var(--color-foreground)" }}>{user.department}</td>
+                        <td className="p-4 text-sm" style={{ color: "var(--color-muted-foreground)" }}>
+                          {user.phone || '—'}
+                        </td>
+                        <td className="p-4 text-sm" style={{ color: "var(--color-foreground)" }}>{user.department || '—'}</td>
                         <td className="p-4">
-                          <span className="px-2 py-1 rounded-full text-xs font-medium" 
-                            style={{ 
+                          <span className="px-2 py-1 rounded-full text-xs font-medium"
+                            style={{
                               background: user.is_active ? "rgba(56,161,105,0.12)" : "rgba(148,163,184,0.12)",
                               color: user.is_active ? "var(--color-success)" : "var(--color-muted-foreground)"
                             }}>
                             {user.is_active ? 'Actif' : 'Inactif'}
                           </span>
                         </td>
-                        <td className="p-4" style={{ color: "var(--color-foreground)" }}>{user.last_login || 'Jamais'}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
                             <button 
@@ -704,6 +706,19 @@ export default function Administration() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
+                  Téléphone
+                </label>
+                <input
+                  type="tel"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                  className="w-full p-2 rounded border"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }}
+                  placeholder="ex: +224 622 000 000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
                   Département
                 </label>
                 <input
@@ -722,6 +737,63 @@ export default function Administration() {
               </Button>
               <Button variant="default" onClick={handleAddUser}>
                 Ajouter
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal identifiants créés — mot de passe visible une seule fois */}
+      {createdCredentials && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="rounded-xl p-6 w-full max-w-md" style={{ background: "var(--color-card)" }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "rgba(34,197,94,0.12)" }}>
+                <Icon name="CheckCircle" size={22} color="var(--color-success)" />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: "var(--color-foreground)" }}>
+                Utilisateur créé avec succès
+              </h3>
+            </div>
+
+            <div className="rounded-lg p-3 mb-4 text-sm font-semibold" style={{ background: "rgba(245,158,11,0.10)", color: "#B45309", border: "1px solid rgba(245,158,11,0.30)" }}>
+              ⚠️ Notez ces informations maintenant — le mot de passe ne sera plus affiché après fermeture.
+            </div>
+
+            <div className="rounded-lg p-4 space-y-3" style={{ background: "var(--color-muted)", fontFamily: "monospace" }}>
+              {[
+                { label: "Nom complet",     value: createdCredentials.full_name },
+                { label: "Nom d'utilisateur", value: createdCredentials.username },
+                { label: "Email",           value: createdCredentials.email },
+                { label: "Rôle",            value: createdCredentials.role },
+                ...(createdCredentials.phone ? [{ label: "Téléphone", value: createdCredentials.phone }] : []),
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-center text-sm">
+                  <span style={{ color: "var(--color-muted-foreground)" }}>{label} :</span>
+                  <span className="font-bold" style={{ color: "var(--color-foreground)" }}>{value}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center text-sm pt-1 border-t" style={{ borderColor: "var(--color-border)" }}>
+                <span style={{ color: "var(--color-muted-foreground)" }}>Mot de passe :</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold" style={{ color: "var(--color-foreground)" }}>
+                    {showCreatedPwd ? createdCredentials.password : '•'.repeat(createdCredentials.password.length)}
+                  </span>
+                  <button
+                    onClick={() => setShowCreatedPwd(v => !v)}
+                    className="p-1 rounded"
+                    style={{ color: "var(--color-primary)" }}
+                    title={showCreatedPwd ? "Masquer" : "Afficher"}
+                  >
+                    <Icon name={showCreatedPwd ? "EyeOff" : "Eye"} size={15} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <Button variant="default" onClick={() => { setCreatedCredentials(null); setShowCreatedPwd(false); }}>
+                J'ai noté les informations
               </Button>
             </div>
           </div>
@@ -789,6 +861,19 @@ export default function Administration() {
                   <option value="chef_de_site">Chef de site</option>
                   <option value="comptable">Comptable</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>
+                  Téléphone
+                </label>
+                <input
+                  type="tel"
+                  value={editUser.phone}
+                  onChange={(e) => setEditUser({...editUser, phone: e.target.value})}
+                  className="w-full p-2 rounded border"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)" }}
+                  placeholder="ex: +224 622 000 000"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-foreground)" }}>

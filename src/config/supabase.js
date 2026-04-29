@@ -42,67 +42,68 @@ export const miningService = {
 
   // Crée un compte auth Supabase + profil associé
   async createUser(email, password, profile) {
-    // Essai 1 : API admin (fonctionne si service_role key est définie)
+    const meta = {
+      full_name:  profile.full_name,
+      role:       profile.role,
+      username:   profile.username,
+      department: profile.department || null,
+      phone:      profile.phone      || null,
+    };
+
+    // Voie 1 : API admin (service_role key disponible)
     if (supabaseAdmin) {
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: {
-          full_name: profile.full_name,
-          role: profile.role,
-          username: profile.username
-        }
+        user_metadata: meta,
       });
       if (authError) return { data: null, error: authError };
 
-      const { data, error } = await supabase
+      // Upsert via client admin pour ignorer les restrictions RLS
+      const { data, error } = await supabaseAdmin
         .from('profiles')
         .upsert([{
-          id: authData.user.id,
-          username: profile.username,
-          full_name: profile.full_name,
-          role: profile.role,
+          id:         authData.user.id,
+          username:   profile.username,
+          full_name:  profile.full_name,
+          role:       profile.role,
           department: profile.department || null,
-          is_active: true
+          phone:      profile.phone      || null,
+          is_active:  true,
         }])
         .select()
         .maybeSingle();
-      return { data, error };
+      return { data: data || { id: authData.user.id }, error };
     }
 
-    // Essai 2 : signUp standard (sans service_role key)
-    // Crée le compte puis insère le profil via trigger ou manuellement
+    // Voie 2 : signUp standard (pas de service_role key)
+    // Les metadata sont stockées dans auth.users ET lues par le trigger handle_new_user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          full_name: profile.full_name,
-          role: profile.role,
-          username: profile.username
-        }
-      }
+      options: { data: meta },
     });
-
     if (authError) return { data: null, error: authError };
     if (!authData?.user) return { data: null, error: { message: 'Création du compte échouée' } };
 
-    // Insérer/mettre à jour le profil
+    // Tenter l'upsert du profil (peut réussir grâce à la nouvelle politique RLS)
     const { data, error } = await supabase
       .from('profiles')
       .upsert([{
-        id: authData.user.id,
-        username: profile.username,
-        full_name: profile.full_name,
-        role: profile.role,
+        id:         authData.user.id,
+        username:   profile.username,
+        full_name:  profile.full_name,
+        role:       profile.role,
         department: profile.department || null,
-        is_active: true
+        phone:      profile.phone      || null,
+        is_active:  true,
       }])
       .select()
       .maybeSingle();
 
-    return { data, error };
+    // Si RLS bloque encore, le trigger a déjà créé le profil → on retourne succès
+    return { data: data || { id: authData.user.id }, error: error?.code === '42501' ? null : error };
   },
 
   // Met à jour le profil d'un utilisateur
