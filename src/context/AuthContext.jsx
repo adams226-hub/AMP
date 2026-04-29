@@ -3,39 +3,91 @@ import { supabase } from '../config/supabase';
 
 const AuthContext = createContext(null);
 
-// Permissions par rôle : quelles routes chaque rôle peut accéder
+// ── Permissions par rôle ──────────────────────────────────────
+// Une seule source de vérité, alignée avec Routes.jsx
+// admin        → tout
+// directeur    → tout sauf Administration
+// supervisor   → Équipement, Maintenance, Pièces de rechange
+// comptable    → Comptabilité, Données
+// chef_de_site → Production uniquement
+// operator     → Carburant, Huile
+
 const ROLE_PERMISSIONS = {
-  admin:        ['/', '/executive-dashboard', '/production-management', '/equipment-management', '/fuel-management', '/oil-management', '/accounting', '/reports', '/administration', '/stock-management', '/data-explorer', '/maintenance-planner', '/spare-parts', '/commandes', '/commande'],
-  directeur:    ['/', '/executive-dashboard', '/production-management', '/equipment-management', '/fuel-management', '/oil-management', '/accounting', '/reports', '/stock-management', '/data-explorer', '/maintenance-planner', '/spare-parts', '/commandes', '/commande'],
-  chef_de_site: ['/', '/equipment-management', '/oil-management', '/data-explorer', '/maintenance-planner', '/spare-parts', '/commande'],
-  comptable:    ['/', '/accounting', '/oil-management', '/data-explorer', '/commandes', '/commande'],
-  equipement:   ['/', '/equipment-management', '/accounting', '/oil-management', '/data-explorer', '/maintenance-planner', '/spare-parts', '/commande'],
-  supervisor:   ['/', '/production-management', '/stock-management', '/oil-management', '/data-explorer', '/commande'],
-  operator:     ['/', '/production-management', '/stock-management', '/commande']
+  admin: [
+    '/',
+    '/executive-dashboard',
+    '/production-management', '/production-simple', '/production-final',
+    '/user-authentication',
+    '/equipment-management',
+    '/fuel-management',
+    '/oil-management',
+    '/accounting',
+    '/reports',
+    '/administration', '/admin-complete', '/admin-working',
+    '/stock-management',
+    '/data-explorer',
+    '/maintenance-planner',
+    '/spare-parts',
+  ],
+  directeur: [
+    '/',
+    '/executive-dashboard',
+    '/production-management', '/production-simple', '/production-final',
+    '/equipment-management',
+    '/fuel-management',
+    '/oil-management',
+    '/accounting',
+    '/reports',
+    '/stock-management',
+    '/data-explorer',
+    '/maintenance-planner',
+    '/spare-parts',
+  ],
+  supervisor: [
+    '/',
+    '/equipment-management',
+    '/maintenance-planner',
+    '/spare-parts',
+  ],
+  comptable: [
+    '/',
+    '/accounting',
+    '/data-explorer',
+  ],
+  chef_de_site: [
+    '/',
+    '/production-management', '/production-simple', '/production-final',
+  ],
+  operator: [
+    '/',
+    '/fuel-management',
+    '/oil-management',
+  ],
+};
+
+// Route d'accueil selon le rôle (alignée avec RoleBasedRedirect dans Routes.jsx)
+const DEFAULT_ROUTES = {
+  admin:        '/executive-dashboard',
+  directeur:    '/executive-dashboard',
+  supervisor:   '/equipment-management',
+  comptable:    '/accounting',
+  chef_de_site: '/production-management',
+  operator:     '/fuel-management',
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Récupérer la session existante au démarrage
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadUserProfile(session.user);
-      } else {
-        setLoading(false);
-      }
+      if (session?.user) loadUserProfile(session.user);
+      else setLoading(false);
     });
 
-    // Écouter les changements d'état d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        loadUserProfile(session.user);
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
+      if (session?.user) loadUserProfile(session.user);
+      else { setUser(null); setLoading(false); }
     });
 
     return () => subscription.unsubscribe();
@@ -52,25 +104,24 @@ export function AuthProvider({ children }) {
       if (error) throw error;
 
       setUser({
-        id: authUser.id,
-        email: authUser.email,
-        username: profile?.username || authUser.email.split('@')[0],
-        full_name: profile?.full_name || authUser.email,
-        role: profile?.role || 'operator',
+        id:         authUser.id,
+        email:      authUser.email,
+        username:   profile?.username  || authUser.email.split('@')[0],
+        full_name:  profile?.full_name || authUser.email,
+        role:       profile?.role      || 'operator',
         department: profile?.department || null,
-        is_active: profile?.is_active ?? true
+        is_active:  profile?.is_active ?? true,
       });
     } catch (err) {
       console.error('Erreur chargement profil:', err);
-      // En cas d'erreur, utiliser les métadonnées de l'utilisateur auth
       setUser({
-        id: authUser.id,
-        email: authUser.email,
-        username: authUser.user_metadata?.username || authUser.email.split('@')[0],
-        full_name: authUser.user_metadata?.full_name || authUser.email,
-        role: authUser.user_metadata?.role || 'operator',
+        id:         authUser.id,
+        email:      authUser.email,
+        username:   authUser.user_metadata?.username  || authUser.email.split('@')[0],
+        full_name:  authUser.user_metadata?.full_name || authUser.email,
+        role:       authUser.user_metadata?.role      || 'operator',
         department: null,
-        is_active: true
+        is_active:  true,
       });
     } finally {
       setLoading(false);
@@ -81,16 +132,12 @@ export function AuthProvider({ children }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        // Message d'erreur en français
-        if (error.message.includes('Invalid login credentials')) {
+        if (error.message.includes('Invalid login credentials'))
           return { success: false, error: 'Email ou mot de passe incorrect' };
-        }
-        if (error.message.includes('Email not confirmed')) {
+        if (error.message.includes('Email not confirmed'))
           return { success: false, error: 'Veuillez confirmer votre email avant de vous connecter' };
-        }
         return { success: false, error: error.message };
       }
-      // Le profil sera chargé via onAuthStateChange
       return { success: true };
     } catch (err) {
       return { success: false, error: 'Erreur de connexion. Veuillez réessayer.' };
@@ -102,30 +149,19 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Vérifie si le rôle courant peut accéder au chemin donné
   const hasAccess = (path) => {
     if (!user) return false;
-    const allowedPaths = ROLE_PERMISSIONS[user.role] || [];
-    // Vérifier si le chemin exact ou un préfixe est autorisé
-    return allowedPaths.some(p => path === p || (p !== '/' && path.startsWith(p)));
+    const allowed = ROLE_PERMISSIONS[user.role];
+    if (!allowed) return false;
+    // Vérification exacte ou par préfixe (ex: /production-management/xxx)
+    return allowed.some(p => path === p || (p !== '/' && path.startsWith(p + '/')));
   };
 
+  // Route par défaut selon le rôle
   const getDefaultRoute = () => {
     if (!user) return '/login';
-    switch (user.role) {
-      case 'admin':
-      case 'directeur':
-        return '/executive-dashboard';
-      case 'chef_de_site':
-        return '/equipment-management';
-      case 'comptable':
-      case 'equipement':
-        return '/accounting';
-      case 'supervisor':
-      case 'operator':
-        return '/production-management';
-      default:
-        return '/executive-dashboard';
-    }
+    return DEFAULT_ROUTES[user.role] || '/executive-dashboard';
   };
 
   return (
@@ -136,7 +172,7 @@ export function AuthProvider({ children }) {
       logout,
       hasAccess,
       getDefaultRoute,
-      isAuthenticated: !!user
+      isAuthenticated: !!user,
     }}>
       {children}
     </AuthContext.Provider>
