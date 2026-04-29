@@ -494,10 +494,21 @@ Généré par AMP Platform — ${now()}`;
 }
 
 async function generateReport(report) {
-  const { startDate, endDate } = parsePeriod(report.period);
+  let { startDate, endDate } = parsePeriod(report.period);
+
+  // Fallback : si la période est en texte libre (anciens rapports),
+  // utiliser report_date comme filtre journalier
+  if (!startDate || !endDate) {
+    const fallback = report.report_date || new Date().toISOString().split('T')[0];
+    startDate = fallback;
+    endDate   = fallback;
+  }
+
   const d = await fetchAllData(startDate, endDate);
-  // Injecte la période lisible dans le rapport pour l'affichage
-  const enriched = { ...report, periodDisplay: formatPeriodDisplay(report.period) || report.period };
+
+  const displayPeriod = formatPeriodDisplay(`${startDate}|${endDate}`) || report.period;
+  const enriched = { ...report, periodDisplay: displayPeriod };
+
   switch (report.type) {
     case 'production':  return buildProductionReport(enriched, d);
     case 'financial':   return buildFinancialReport(enriched, d);
