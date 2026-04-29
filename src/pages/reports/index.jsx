@@ -66,13 +66,26 @@ function getQuickPeriod(type) {
 
 // Charge les données filtrées par période
 async function fetchAllData(startDate = null, endDate = null) {
-  const df = (q, col) => (startDate && endDate) ? q.gte(col, startDate).lte(col, endDate) : q;
+  // Filtre Supabase (performance — réduit le volume transféré)
+  const df = (q, col) => (startDate && endDate)
+    ? q.gte(col, startDate).lte(col, endDate + 'T23:59:59')
+    : q;
 
-  // Production + details joinés (filtrage par date sur production)
+  // Filtre JS garanti (corrige les problèmes de timezone / type TIMESTAMPTZ)
+  // Prend les 10 premiers caractères (YYYY-MM-DD) quel que soit le format stocké
+  const jsFilter = (rows, dateField) => {
+    if (!startDate || !endDate || !Array.isArray(rows)) return rows || [];
+    return rows.filter(r => {
+      const d = String(r[dateField] || '').substring(0, 10);
+      return d >= startDate && d <= endDate;
+    });
+  };
+
   let prodQ = supabase.from('production')
     .select('*, production_details(dimension, quantity)')
     .order('date');
-  prodQ = df(prodQ, 'date').limit(5000);
+  if (startDate && endDate) prodQ = prodQ.gte('date', startDate).lte('date', endDate);
+  prodQ = prodQ.limit(5000);
 
   const [prodRes, exitsRes, financialRes, maintenanceRes, eqRes, fuelRes, oilRes, stockEntriesRes, stockExitsRes] = await Promise.all([
     prodQ,
@@ -86,18 +99,18 @@ async function fetchAllData(startDate = null, endDate = null) {
     miningService.getStockExits(),
   ]);
 
-  const production = prodRes.data || [];
+  const production = jsFilter(prodRes.data || [], 'date');
   const details    = production.flatMap(p => p.production_details || []);
 
   return {
     production,
     details,
-    exits:       exitsRes.data     || [],
-    financial:   financialRes.data || [],
-    maintenance: maintenanceRes.data || [],
-    equipment:   eqRes.data        || [],
-    fuel:        fuelRes.data      || [],
-    oil:         oilRes.data       || [],
+    exits:       jsFilter(exitsRes.data,     'date'),
+    financial:   jsFilter(financialRes.data,  'transaction_date'),
+    maintenance: jsFilter(maintenanceRes.data,'start_date'),
+    equipment:   eqRes.data || [],
+    fuel:        jsFilter(fuelRes.data,        'transaction_date'),
+    oil:         jsFilter(oilRes.data,         'transaction_date'),
     stockEntries: stockEntriesRes.data || [],
     stockExits:   stockExitsRes.data  || [],
   };
@@ -496,10 +509,12 @@ Généré par AMP Platform — ${now()}`;
 async function generateReport(report) {
   let { startDate, endDate } = parsePeriod(report.period);
 
-  // Fallback : si la période est en texte libre (anciens rapports),
-  // utiliser report_date comme filtre journalier
+  // Fallback : anciens rapports avec période en texte libre
+  // → on prend report_date (date de création du rapport) ou aujourd'hui
   if (!startDate || !endDate) {
-    const fallback = report.report_date || new Date().toISOString().split('T')[0];
+    // Extraire YYYY-MM-DD depuis report_date ou created_at
+    const raw = report.report_date || (report.created_at || '').substring(0, 10);
+    const fallback = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : new Date().toISOString().split('T')[0];
     startDate = fallback;
     endDate   = fallback;
   }
