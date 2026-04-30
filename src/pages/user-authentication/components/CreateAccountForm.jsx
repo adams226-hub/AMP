@@ -60,17 +60,16 @@ export default function CreateAccountForm({ onSuccess }) {
 
     setLoading(true);
     try {
-      const newUser = {
+      const profile = {
         username: `${form.firstName.toLowerCase()}.${form.lastName.toLowerCase()}`,
-        email: form.email,
         full_name: `${form.firstName} ${form.lastName}`,
-        password_hash: form.password,
         role: form.role,
         department: form.site,
+        phone: form.phone || null,
         is_active: true,
       };
 
-      const { data, error } = await miningService.createUser('admin', newUser);
+      const { data, error } = await miningService.createUser(form.email, form.password, profile);
       if (error) {
         console.error('Erreur création utilisateur:', error);
         setErrors({ form: error.message || 'Erreur lors de la création du compte. Réessayez.' });

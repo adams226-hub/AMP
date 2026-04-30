@@ -93,10 +93,8 @@ export default function AdminComplete() {
         return;
       }
 
-      const result = await miningService.createUser('admin', {
+      const result = await miningService.createUser(newUser.email, 'temp_password_123', {
         username: newUser.username,
-        email: newUser.email,
-        password_hash: 'temp_password_123',
         full_name: newUser.full_name,
         role: newUser.role,
         department: newUser.department,

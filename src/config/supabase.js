@@ -12,6 +12,19 @@ const supabaseAdmin = supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
   : null;
 
+const findUserByEmail = async (email) => {
+  if (!supabaseAdmin || !email) return null;
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ query: email, limit: 100 });
+    if (error) return null;
+    return data?.users?.find((user) => user.email?.toLowerCase() === email.toLowerCase()) || null;
+  } catch (err) {
+    const { data } = await supabaseAdmin.auth.admin.listUsers();
+    return data?.users?.find((user) => user.email?.toLowerCase() === email.toLowerCase()) || null;
+  }
+};
+
 // ============================================================
 // MINING SERVICE - Toutes les opérations base de données
 // Les contrôles d'accès sont gérés par les RLS Supabase.
@@ -80,7 +93,20 @@ export const miningService = {
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email, password, email_confirm: true, user_metadata: meta,
       });
-      if (authError) return { data: null, error: authError };
+
+      if (authError) {
+        const isDuplicate = authError.message?.includes('already been registered') || authError.message?.includes('duplicate');
+        if (isDuplicate) {
+          const existingUser = await findUserByEmail(email);
+          if (existingUser) {
+            const { data, error } = await upsertProfile(supabaseAdmin, existingUser.id);
+            if (error) return { data: null, error };
+            return { data: data || { id: existingUser.id }, error: null };
+          }
+        }
+        return { data: null, error: authError };
+      }
+
       const { data, error } = await upsertProfile(supabaseAdmin, authData.user.id);
       return { data: data || { id: authData.user.id }, error };
     }
@@ -89,7 +115,10 @@ export const miningService = {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email, password, options: { data: meta },
     });
-    if (authError) return { data: null, error: authError };
+    if (authError) {
+      const isDuplicate = authError.message?.includes('already been registered') || authError.message?.includes('already registered') || authError.message?.includes('duplicate');
+      return { data: null, error: { message: isDuplicate ? 'Cette adresse e-mail est déjà utilisée.' : authError.message } };
+    }
     if (!authData?.user) return { data: null, error: { message: 'Création du compte échouée' } };
 
     const { data, error } = await upsertProfile(supabase, authData.user.id);
