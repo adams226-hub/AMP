@@ -949,13 +949,21 @@ export const miningService = {
     return { error };
   },
 
+  _applyDateRange(query, startDate = null, endDate = null, column = 'transaction_date') {
+    if (!query) return query;
+    if (startDate && endDate) return query.gte(column, startDate).lte(column, endDate);
+    if (startDate) return query.gte(column, startDate);
+    if (endDate) return query.lte(column, endDate);
+    return query;
+  },
+
   async getFuelChartData(startDate = null, endDate = null) {
     let q = supabase
       .from('fuel_transactions')
       .select('quantity, transaction_date, equipment:equipment_id(name)')
       .eq('transaction_type', 'exit')
       .not('equipment_id', 'is', null);
-    if (startDate && endDate) q = q.gte('transaction_date', startDate).lte('transaction_date', endDate);
+    q = this._applyDateRange(q, startDate, endDate, 'transaction_date');
     const { data, error } = await q;
     if (error) return { data: [], error };
     const map = {};
@@ -976,7 +984,7 @@ export const miningService = {
       .select('quantity, transaction_date, equipment:equipment_id(name)')
       .eq('transaction_type', 'exit')
       .not('equipment_id', 'is', null);
-    if (startDate && endDate) q = q.gte('transaction_date', startDate).lte('transaction_date', endDate);
+    q = this._applyDateRange(q, startDate, endDate, 'transaction_date');
     const { data, error } = await q;
     if (error) return { data: [], error };
     const map = {};
