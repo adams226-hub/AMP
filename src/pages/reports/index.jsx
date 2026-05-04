@@ -64,22 +64,45 @@ function getQuickPeriod(type) {
   }
 }
 
-// Charge les données filtrées par période
+// ── Filtre JS universel ───────────────────────────────────────
+// Extrait YYYY-MM-DD depuis n'importe quel format de date Supabase
+// (DATE, TIMESTAMPTZ, ISO string, null) et compare avec la plage.
+function extractDate(value) {
+  if (!value) return '';
+  const s = String(value);
+  // ISO: "2026-04-29T14:30:00..." → prendre les 10 premiers chars
+  // Date seule: "2026-04-29"
+  return s.substring(0, 10);
+}
+
+function inRange(value, startDate, endDate) {
+  if (!startDate || !endDate) return true;
+  const d = extractDate(value);
+  if (!d || d.length < 10) return false; // date invalide → exclure
+  return d >= startDate && d <= endDate;
+}
+
+// Filtre un tableau de lignes sur un ou plusieurs champs date possibles
+function filterRows(rows, dateFields, startDate, endDate) {
+  if (!startDate || !endDate) return rows || [];
+  if (!Array.isArray(rows)) return [];
+  const fields = Array.isArray(dateFields) ? dateFields : [dateFields];
+  return rows.filter(row => {
+    for (const f of fields) {
+      if (row[f] !== undefined && row[f] !== null) {
+        return inRange(row[f], startDate, endDate);
+      }
+    }
+    return false; // aucun champ date trouvé → exclure par sécurité
+  });
+}
+
+// Charge les données filtrées par période (couches 1 et 2 sur 3)
 async function fetchAllData(startDate = null, endDate = null) {
-  // Filtre Supabase (performance — réduit le volume transféré)
-  const df = (q, col) => (startDate && endDate)
+  // Couche 1 : filtre Supabase (réduit le volume réseau)
+  const sbf = (q, col) => (startDate && endDate)
     ? q.gte(col, startDate).lte(col, endDate + 'T23:59:59')
     : q;
-
-  // Filtre JS garanti (corrige les problèmes de timezone / type TIMESTAMPTZ)
-  // Prend les 10 premiers caractères (YYYY-MM-DD) quel que soit le format stocké
-  const jsFilter = (rows, dateField) => {
-    if (!startDate || !endDate || !Array.isArray(rows)) return rows || [];
-    return rows.filter(r => {
-      const d = String(r[dateField] || '').substring(0, 10);
-      return d >= startDate && d <= endDate;
-    });
-  };
 
   let prodQ = supabase.from('production')
     .select('*, production_details(dimension, quantity)')
@@ -89,28 +112,30 @@ async function fetchAllData(startDate = null, endDate = null) {
 
   const [prodRes, exitsRes, financialRes, maintenanceRes, eqRes, fuelRes, oilRes, stockEntriesRes, stockExitsRes] = await Promise.all([
     prodQ,
-    df(supabase.from('production_exits').select('*'), 'date').limit(5000),
-    df(supabase.from('financial_transactions').select('*'), 'transaction_date').limit(5000),
-    df(supabase.from('maintenance').select('*, equipment:equipment_id(name)').order('start_date', { ascending: false }), 'start_date').limit(500),
+    sbf(supabase.from('production_exits').select('*'), 'date').limit(5000),
+    sbf(supabase.from('financial_transactions').select('*'), 'transaction_date').limit(5000),
+    sbf(supabase.from('maintenance').select('*, equipment:equipment_id(name)').order('start_date', { ascending: false }), 'start_date').limit(500),
     supabase.from('equipment').select('*'),
-    df(supabase.from('fuel_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }), 'transaction_date').limit(5000),
-    df(supabase.from('oil_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }), 'transaction_date').limit(5000),
+    sbf(supabase.from('fuel_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }), 'transaction_date').limit(5000),
+    sbf(supabase.from('oil_transactions').select('*, equipment:equipment_id(name)').order('transaction_date', { ascending: false }), 'transaction_date').limit(5000),
     miningService.getStockEntries(),
     miningService.getStockExits(),
   ]);
 
-  const production = jsFilter(prodRes.data || [], 'date');
+  // Couche 2 : filtre JS — garantit la cohérence quelle que soit la réponse Supabase
+  const production = filterRows(prodRes.data, 'date', startDate, endDate);
   const details    = production.flatMap(p => p.production_details || []);
 
   return {
     production,
     details,
-    exits:       jsFilter(exitsRes.data,     'date'),
-    financial:   jsFilter(financialRes.data,  'transaction_date'),
-    maintenance: jsFilter(maintenanceRes.data,'start_date'),
-    equipment:   eqRes.data || [],
-    fuel:        jsFilter(fuelRes.data,        'transaction_date'),
-    oil:         jsFilter(oilRes.data,         'transaction_date'),
+    exits:        filterRows(exitsRes.data,      'date',             startDate, endDate),
+    financial:    filterRows(financialRes.data,   'transaction_date', startDate, endDate),
+    maintenance:  filterRows(maintenanceRes.data, 'start_date',       startDate, endDate),
+    equipment:    eqRes.data || [],
+    // Huile et carburant : vérifie 'transaction_date' ET 'date' (double champ possible)
+    fuel:         filterRows(fuelRes.data, ['transaction_date', 'date'], startDate, endDate),
+    oil:          filterRows(oilRes.data,  ['transaction_date', 'date'], startDate, endDate),
     stockEntries: stockEntriesRes.data || [],
     stockExits:   stockExitsRes.data  || [],
   };
@@ -385,8 +410,12 @@ Généré par AMP Platform — ${now()}`;
 }
 
 function buildFuelReport(report, d) {
-  const entries = d.fuel.filter(f => f.transaction_type === 'entry' || f.transaction_type === null);
-  const exits   = d.fuel.filter(f => f.transaction_type === 'exit');
+  // Couche 3 : filtre final dans le builder
+  const { _start, _end } = report;
+  const fuelData = filterRows(d.fuel, ['transaction_date', 'date'], _start, _end);
+
+  const entries = fuelData.filter(f => f.transaction_type === 'entry' || f.transaction_type === null);
+  const exits   = fuelData.filter(f => f.transaction_type === 'exit');
   const totalIn   = entries.reduce((s, f) => s + parseFloat(f.quantity || 0), 0);
   const totalOut  = exits.reduce((s, f)   => s + parseFloat(f.quantity || 0), 0);
   const totalCost = entries.reduce((s, f) => s + parseFloat(f.total_cost || 0), 0);
@@ -403,8 +432,6 @@ function buildFuelReport(report, d) {
     .sort((a, b) => b[1] - a[1])
     .map(([name, qty]) => `  ${name.padEnd(30)} ${fmtN(qty).padStart(10)} L`)
     .join('\n') || '  Aucune sortie enregistrée';
-
-  const lastFuel = d.fuel.slice(0, 15);
 
   return `${SEP}
   RAPPORT CARBURANT
@@ -423,7 +450,7 @@ ${SUB}
   Sorties (consommations): ${fmtN(totalOut)} L
   Stock disponible       : ${fmtN(stock)} L
   Coût total achats      : ${fmt(totalCost)} FCFA
-  Transactions totales   : ${d.fuel.length}
+  Transactions totales   : ${fuelData.length}
 
 ${SUB}
   CONSOMMATION PAR ENGIN (Sorties)
@@ -437,19 +464,24 @@ ${SUB}
 ${SUB}
 
   ${'Date'.padEnd(12)} ${'Type'.padEnd(8)} ${'Équipement'.padEnd(25)} ${'Carburant'.padEnd(10)} ${'Quantité'.padStart(10)}
-${lastFuel.map(f => {
-  const type = f.transaction_type === 'entry' ? 'ENTRÉE' : 'SORTIE';
-  const eq   = f.equipment?.name || '—';
-  return `  ${(f.transaction_date||'').padEnd(12)} ${type.padEnd(8)} ${eq.padEnd(25)} ${(f.fuel_type||'').padEnd(10)} ${(fmtN(f.quantity)+' L').padStart(10)}`;
-}).join('\n') || '  Aucune transaction'}
+${fuelData.map(f => {
+  const type    = f.transaction_type === 'entry' ? 'ENTRÉE' : 'SORTIE';
+  const eq      = f.equipment?.name || '—';
+  const dateVal = f.transaction_date || f.date || '';
+  return `  ${String(dateVal).padEnd(12)} ${type.padEnd(8)} ${eq.padEnd(25)} ${(f.fuel_type||'').padEnd(10)} ${(fmtN(f.quantity)+' L').padStart(10)}`;
+}).join('\n') || '  Aucune transaction pour cette période'}
 
 ---
 Généré par AMP Platform — ${now()}`;
 }
 
 function buildOilReport(report, d) {
-  const entries = d.oil.filter(o => o.transaction_type === 'entry');
-  const exits   = d.oil.filter(o => o.transaction_type === 'exit');
+  // Couche 3 : filtre final directement dans le builder — garantie absolue
+  const { _start, _end } = report;
+  const oilData = filterRows(d.oil, ['transaction_date', 'date'], _start, _end);
+
+  const entries = oilData.filter(o => o.transaction_type === 'entry');
+  const exits   = oilData.filter(o => o.transaction_type === 'exit');
   const totalIn  = entries.reduce((s, o) => s + parseFloat(o.quantity || 0), 0);
   const totalOut = exits.reduce((s, o)   => s + parseFloat(o.quantity || 0), 0);
   const stock    = Math.max(0, totalIn - totalOut);
@@ -482,7 +514,7 @@ ${SUB}
   Entrées (réceptions)   : ${fmtN(totalIn)} L
   Sorties (consommations): ${fmtN(totalOut)} L
   Stock disponible       : ${fmtN(stock)} L
-  Transactions totales   : ${d.oil.length}
+  Transactions totales   : ${oilData.length}
 
 ${SUB}
   CONSOMMATION PAR ENGIN (Sorties)
@@ -492,15 +524,16 @@ ${SUB}
 ${eqLines}
 
 ${SUB}
-  HISTORIQUE RÉCENT (15 dernières transactions)
+  HISTORIQUE (toutes les transactions de la période)
 ${SUB}
 
   ${'Date'.padEnd(12)} ${'Type'.padEnd(8)} ${'Équipement'.padEnd(25)} ${'Huile'.padEnd(20)} ${'Qté'.padStart(8)}
-${d.oil.slice(0, 15).map(o => {
+${oilData.map(o => {
   const type = o.transaction_type === 'entry' ? 'ENTRÉE' : 'SORTIE';
   const eq   = o.equipment?.name || (o.transaction_type === 'entry' ? '(Stock général)' : '—');
-  return `  ${(o.transaction_date||'').padEnd(12)} ${type.padEnd(8)} ${eq.padEnd(25)} ${(o.oil_type||'').padEnd(20)} ${(fmtN(o.quantity)+' L').padStart(8)}`;
-}).join('\n') || '  Aucune transaction'}
+  const dateVal = o.transaction_date || o.date || '';
+  return `  ${String(dateVal).padEnd(12)} ${type.padEnd(8)} ${eq.padEnd(25)} ${(o.oil_type||'').padEnd(20)} ${(fmtN(o.quantity)+' L').padStart(8)}`;
+}).join('\n') || '  Aucune transaction pour cette période'}
 
 ---
 Généré par AMP Platform — ${now()}`;
@@ -522,7 +555,8 @@ async function generateReport(report) {
   const d = await fetchAllData(startDate, endDate);
 
   const displayPeriod = formatPeriodDisplay(`${startDate}|${endDate}`) || report.period;
-  const enriched = { ...report, periodDisplay: displayPeriod };
+  // Injecter les dates dans le rapport pour la couche 3 (filtre dans les builders)
+  const enriched = { ...report, periodDisplay: displayPeriod, _start: startDate, _end: endDate };
 
   switch (report.type) {
     case 'production':  return buildProductionReport(enriched, d);
