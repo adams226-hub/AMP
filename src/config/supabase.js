@@ -1003,15 +1003,22 @@ export const miningService = {
   // GESTION DE L'HUILE
   // ============================================================
 
-  async getOilTransactions() {
-    const { data, error } = await supabase
+  async getOilTransactions(startDate = null, endDate = null) {
+    let query = supabase
       .from('oil_transactions')
       .select(`
         *,
         equipment:equipment_id (id, name, type)
       `)
-      .order('transaction_date', { ascending: false })
-      .limit(200);
+      .order('transaction_date', { ascending: false });
+
+    if (startDate && endDate) {
+      query = query.gte('transaction_date', startDate).lte('transaction_date', endDate);
+    }
+
+    query = query.limit(200);
+
+    const { data, error } = await query;
     // Normalise les noms de colonnes pour le front-end
     const normalized = (data || []).map(t => ({
       ...t,

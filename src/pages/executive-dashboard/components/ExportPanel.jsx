@@ -259,7 +259,7 @@ export default function ExportPanel() {
         miningService.getFinancialTransactions(startDate, endDate),
         miningService.getEquipment(),
         miningService.getStockSummary(),
-        miningService.getOilTransactions(),
+        miningService.getOilTransactions(startDate, endDate),
       ]);
 
       const rawProductionData = productionResponse.data || [];
